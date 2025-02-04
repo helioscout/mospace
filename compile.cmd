@@ -1,1 +1,1 @@
-gcc game.c -o mospace -lallegro -lallegro_image
+gcc game.c -o mospace -lallegro -lallegro_image -lbox2d

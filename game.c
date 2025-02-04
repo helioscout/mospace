@@ -6,13 +6,22 @@
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_image.h>
 
+#include <box2d/box2d.h>
+
 #define KEY_SEEN 1
 #define KEY_RELEASED 2
 #define SHIP_SPEED 1
 
-int display_width = 800;
-int display_height = 600;
+const int display_width = 800;
+const int display_height = 600;
+int display_center_x = display_width / 2;
+int display_center_y = display_height / 2;
 unsigned char key[ALLEGRO_KEY_MAX];
+float scaling_factor = 0.1f;
+float time_step = 1.0f / 60.0f;
+int sub_step_count = 4;
+
+b2WorldId world_id;
 
 struct Sprites {
 	ALLEGRO_BITMAP* sheet;
@@ -61,18 +70,21 @@ struct Sprites {
 } sprites;
 
 struct Ship {
-	int x, y;
+	int x, y, width, height;
 	ALLEGRO_BITMAP* sprite;
 };
 
 struct Player {
 	struct Ship ship;
-} player = { .ship = { .x = 0, .y = 0, .sprite = NULL }};
+	b2BodyId body_id;
+} player = { .ship = { .x = 0, .y = 0, .width = 0, .height = 0, .sprite = NULL }, .body_id = b2_nullBodyId };
 
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
 void* create(void* value, const char* description);
 ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height);
+float pixels_to_meters(int pixels);
+int meters_to_pixels(float meters);
 
 void init_sprites() {
 	sprites.sheet = create(al_load_bitmap("assets/spritesheet.png"), "spritesheet");
@@ -173,8 +185,34 @@ void init_keyboard() {
 
 void init_player() {
 	player.ship.sprite = sprites.ship_a;
-	player.ship.x = (display_width / 2) - (al_get_bitmap_width(player.ship.sprite) / 2);
-	player.ship.y = (display_height / 2) - (al_get_bitmap_height(player.ship.sprite) / 2);
+	player.ship.width = al_get_bitmap_width(player.ship.sprite);
+	player.ship.height = al_get_bitmap_height(player.ship.sprite);
+	// player.ship.x = display_center_x - player.ship.width / 2;
+	// player.ship.y = display_center_y - player.ship.height / 2;
+}
+
+void init_physics() {
+	b2WorldDef world_def = b2DefaultWorldDef();
+	world_def.gravity = (b2Vec2){ 0.0f, 0.0f };
+
+	world_id = b2CreateWorld(&world_def);
+
+	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.type = b2_dynamicBody;
+	body_def.position = (b2Vec2){ pixels_to_meters(display_center_x), pixels_to_meters(display_center_y) };
+
+	player.body_id = b2CreateBody(world_id, &body_def);
+
+	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(player.ship.width) / 2, pixels_to_meters(player.ship.height) / 2);
+	b2ShapeDef shape_def = b2DefaultShapeDef();
+	shape_def.density = 1.0f;
+	shape_def.friction = 0.1f;
+
+	b2CreatePolygonShape(player.body_id, &shape_def, &dynamic_box);
+}
+
+void destroy_physics() {
+	b2DestroyWorld(world_id);
 }
 
 void process_keyboard(ALLEGRO_EVENT* event) {
@@ -189,10 +227,23 @@ void process_keyboard(ALLEGRO_EVENT* event) {
 }
 
 void process_player() {
-	if (key[ALLEGRO_KEY_LEFT]) player.ship.x -= SHIP_SPEED;
-	if (key[ALLEGRO_KEY_RIGHT]) player.ship.x += SHIP_SPEED;
-	if (key[ALLEGRO_KEY_UP]) player.ship.y -= SHIP_SPEED;
-	if (key[ALLEGRO_KEY_DOWN]) player.ship.y += SHIP_SPEED;
+	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ -30.0f, 0.0f }, true);
+	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 30.0f, 0.0f }, true);
+	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 0.0f, -30.0f }, true);
+	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 0.0f, 30.0f }, true);
+}
+
+void process_physics() {
+	b2World_Step(world_id, time_step, sub_step_count);
+	
+	b2Vec2 position = b2Body_GetPosition(player.body_id);
+
+	player.ship.x = meters_to_pixels(position.x) - player.ship.width / 2;
+	player.ship.y = meters_to_pixels(position.y) - player.ship.height / 2;
+}
+
+void draw_player() {
+	al_draw_bitmap(player.ship.sprite, player.ship.x, player.ship.y, 0);
 }
 
 int main() {
@@ -215,6 +266,7 @@ int main() {
 	init_sprites();
 	init_keyboard();
 	init_player();
+	init_physics();
 	
 	al_start_timer(timer);
 
@@ -224,6 +276,7 @@ int main() {
 		switch (event.type) {
 			case ALLEGRO_EVENT_TIMER:
 				process_player();
+				process_physics();
 				redraw = true;
 				break;
 				
@@ -236,7 +289,7 @@ int main() {
 
 		if (redraw && al_is_event_queue_empty(queue)) {
 			al_clear_to_color(al_map_rgb(0, 0, 0));
-			al_draw_bitmap(player.ship.sprite, player.ship.x, player.ship.y, 0);
+			draw_player();
 			al_flip_display();
 
 			redraw = false;
@@ -247,6 +300,7 @@ int main() {
 	al_destroy_timer(timer);
 	al_destroy_event_queue(queue);
 	destroy_sprites();
+	destroy_physics();
 	
 	return EXIT_SUCCESS;
 }
@@ -268,6 +322,9 @@ void* create(void* value, const char* description) {
 ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height) {
 	return (ALLEGRO_BITMAP*)create(al_create_sub_bitmap(sprites.sheet, x, y, width, height), "sprite");
 }
+
+float pixels_to_meters(int pixels) { return pixels * scaling_factor; }
+int meters_to_pixels(float meters) { return (int)(meters / scaling_factor); }
 
 void log_msg(const char* message, const char* description) {
 	FILE* f = fopen("log.txt", "a");
