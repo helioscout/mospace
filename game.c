@@ -279,6 +279,18 @@ void process_player() {
 	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, 30.0f }), true);
 	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, 5, true);
 	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -5, true);
+	
+	// Emergency braking.
+	if (key[ALLEGRO_KEY_SPACE]) {
+		float linear_damping = b2Body_GetLinearDamping(player.body_id);
+		float angular_damping = b2Body_GetAngularDamping(player.body_id);
+		
+		if (linear_damping < 100) b2Body_SetLinearDamping(player.body_id, linear_damping * 1.2f + 0.5f);
+		if (angular_damping < 100) b2Body_SetAngularDamping(player.body_id, angular_damping * 1.2f + 0.5f);
+	} else {
+		b2Body_SetLinearDamping(player.body_id, 0.0f);
+		b2Body_SetAngularDamping(player.body_id, 0.0f);
+	}
 
 	player.tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
 }
