@@ -1,3 +1,4 @@
+#include <allegro5/keycodes.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -71,13 +72,25 @@ struct Sprites {
 
 struct Ship {
 	int x, y, width, height;
+	int cx, cy;					// Ship center relative coordinates (width|height / 2).
+	float angle;				// Ship rotation angle in radians.
 	ALLEGRO_BITMAP* sprite;
 };
 
 struct Player {
 	struct Ship ship;
 	b2BodyId body_id;
-} player = { .ship = { .x = 0, .y = 0, .width = 0, .height = 0, .sprite = NULL }, .body_id = b2_nullBodyId };
+} player = {
+	.ship = {
+		.x = 0,
+		.y = 0,
+		.width = 0,
+		.height = 0,
+		.cx = 0,
+		.cy = 0,
+		.angle = 0.0f,
+		.sprite = NULL },
+	.body_id = b2_nullBodyId };
 
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
@@ -187,8 +200,8 @@ void init_player() {
 	player.ship.sprite = sprites.ship_a;
 	player.ship.width = al_get_bitmap_width(player.ship.sprite);
 	player.ship.height = al_get_bitmap_height(player.ship.sprite);
-	// player.ship.x = display_center_x - player.ship.width / 2;
-	// player.ship.y = display_center_y - player.ship.height / 2;
+	player.ship.cx = player.ship.width / 2;
+	player.ship.cy = player.ship.height / 2;
 }
 
 void init_physics() {
@@ -227,23 +240,28 @@ void process_keyboard(ALLEGRO_EVENT* event) {
 }
 
 void process_player() {
-	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ -30.0f, 0.0f }, true);
-	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 30.0f, 0.0f }, true);
-	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 0.0f, -30.0f }, true);
-	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, (b2Vec2){ 0.0f, 30.0f }, true);
+	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ -30.0f, 0.0f }), true);
+	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 30.0f, 0.0f }), true);
+	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, -30.0f }), true);
+	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, 30.0f }), true);
+	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, 5, true);
+	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -5, true);
 }
 
 void process_physics() {
 	b2World_Step(world_id, time_step, sub_step_count);
 	
 	b2Vec2 position = b2Body_GetPosition(player.body_id);
+	b2Rot rotation = b2Body_GetRotation(player.body_id);
 
-	player.ship.x = meters_to_pixels(position.x) - player.ship.width / 2;
-	player.ship.y = meters_to_pixels(position.y) - player.ship.height / 2;
+	player.ship.x = meters_to_pixels(position.x) - player.ship.cx;
+	player.ship.y = meters_to_pixels(position.y) - player.ship.cy;
+	player.ship.angle = b2Rot_GetAngle(rotation);
 }
 
 void draw_player() {
-	al_draw_bitmap(player.ship.sprite, player.ship.x, player.ship.y, 0);
+	if (player.ship.angle == 0.0f) al_draw_bitmap(player.ship.sprite, player.ship.x, player.ship.y, 0);
+	else al_draw_rotated_bitmap(player.ship.sprite, player.ship.cx, player.ship.cy, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle, 0);
 }
 
 int main() {
