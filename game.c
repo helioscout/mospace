@@ -1,4 +1,3 @@
-#include <allegro5/keycodes.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -68,6 +67,9 @@ struct Sprites {
 	ALLEGRO_BITMAP* station_a;
 	ALLEGRO_BITMAP* station_b;
 	ALLEGRO_BITMAP* station_c;
+	ALLEGRO_BITMAP* trace_thin;
+	ALLEGRO_BITMAP* trace_medium;
+	ALLEGRO_BITMAP* trace_thick;
 } sprites;
 
 struct Ship {
@@ -77,9 +79,17 @@ struct Ship {
 	ALLEGRO_BITMAP* sprite;
 };
 
+struct Trace {
+	int width, height;
+	int tint_factor;			// Trace intensity.
+	ALLEGRO_BITMAP* sprite;
+};
+
 struct Player {
 	struct Ship ship;
+	struct Trace trace;
 	b2BodyId body_id;
+	bool tracing;
 } player = {
 	.ship = {
 		.x = 0,
@@ -90,7 +100,13 @@ struct Player {
 		.cy = 0,
 		.angle = 0.0f,
 		.sprite = NULL },
-	.body_id = b2_nullBodyId };
+	.trace = {
+		.width = 0,
+		.height = 0,
+		.tint_factor = 0,
+		.sprite = NULL },
+	.body_id = b2_nullBodyId,
+	.tracing = false };
 
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
@@ -144,9 +160,16 @@ void init_sprites() {
 	sprites.station_a = grab_sprite(48, 420, 48, 48);
 	sprites.station_b = grab_sprite(0, 92, 56, 56);
 	sprites.station_c = grab_sprite(0, 32, 60, 60);
+	
+	sprites.trace_thin = al_load_bitmap("assets/trace_thin.png");
+	sprites.trace_medium = al_load_bitmap("assets/trace_medium.png");
+	sprites.trace_thick = al_load_bitmap("assets/trace_thick.png");
 }
 
 void destroy_sprites() {
+	al_destroy_bitmap(sprites.trace_thick);
+	al_destroy_bitmap(sprites.trace_medium);
+	al_destroy_bitmap(sprites.trace_thin);
 	al_destroy_bitmap(sprites.station_c);
 	al_destroy_bitmap(sprites.station_b);
 	al_destroy_bitmap(sprites.station_a);
@@ -202,6 +225,10 @@ void init_player() {
 	player.ship.height = al_get_bitmap_height(player.ship.sprite);
 	player.ship.cx = player.ship.width / 2;
 	player.ship.cy = player.ship.height / 2;
+
+	player.trace.sprite = sprites.trace_thin;
+	player.trace.width = al_get_bitmap_width(player.trace.sprite);
+	player.trace.height = al_get_bitmap_height(player.trace.sprite);
 }
 
 void init_physics() {
@@ -226,6 +253,7 @@ void init_physics() {
 
 void destroy_physics() {
 	b2DestroyWorld(world_id);
+	world_id = b2_nullWorldId;
 }
 
 void process_keyboard(ALLEGRO_EVENT* event) {
@@ -234,8 +262,13 @@ void process_keyboard(ALLEGRO_EVENT* event) {
 			for (int i = 0; i < ALLEGRO_KEY_MAX; i++) key[i] &= KEY_SEEN;
 			break;
 
-		case ALLEGRO_EVENT_KEY_DOWN: key[event->keyboard.keycode] = KEY_SEEN | KEY_RELEASED; break;
-		case ALLEGRO_EVENT_KEY_UP: key[event->keyboard.keycode] &= KEY_RELEASED; break;
+		case ALLEGRO_EVENT_KEY_DOWN:
+			key[event->keyboard.keycode] = KEY_SEEN | KEY_RELEASED;
+			break;
+			
+		case ALLEGRO_EVENT_KEY_UP:
+			key[event->keyboard.keycode] &= KEY_RELEASED;
+			break;
 	}
 }
 
@@ -246,6 +279,8 @@ void process_player() {
 	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, 30.0f }), true);
 	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, 5, true);
 	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -5, true);
+
+	player.tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
 }
 
 void process_physics() {
@@ -262,6 +297,11 @@ void process_physics() {
 void draw_player() {
 	if (player.ship.angle == 0.0f) al_draw_bitmap(player.ship.sprite, player.ship.x, player.ship.y, 0);
 	else al_draw_rotated_bitmap(player.ship.sprite, player.ship.cx, player.ship.cy, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle, 0);
+
+	if (player.tracing) {
+		if (player.trace.tint_factor < 255) player.trace.tint_factor += 5;
+		al_draw_tinted_rotated_bitmap(player.trace.sprite, al_map_rgb(255 - player.trace.tint_factor, 255, 255), player.trace.width / 2.0f, -player.ship.cy, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle, 0);
+	} else player.trace.tint_factor = 0;
 }
 
 int main() {
