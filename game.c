@@ -67,22 +67,24 @@ struct Sprites {
 	ALLEGRO_BITMAP* station_a;
 	ALLEGRO_BITMAP* station_b;
 	ALLEGRO_BITMAP* station_c;
-	ALLEGRO_BITMAP* trace_thin;
-	ALLEGRO_BITMAP* trace_medium;
-	ALLEGRO_BITMAP* trace_thick;
+	ALLEGRO_BITMAP* trace_thin[10];
+	ALLEGRO_BITMAP* trace_medium[10];
+	ALLEGRO_BITMAP* trace_thick[10];
 } sprites;
 
 struct Ship {
 	int x, y, width, height;
 	int cx, cy;					// Ship center relative coordinates (width|height / 2).
 	float angle;				// Ship rotation angle in radians.
+	int speed;					// Maximum ship speed from 0 to 50 (anti-damping).
 	ALLEGRO_BITMAP* sprite;
 };
 
 struct Trace {
-	int width, height;
+	int width[10];
+	int height[10];
 	int tint_factor;			// Trace intensity.
-	ALLEGRO_BITMAP* sprite;
+	ALLEGRO_BITMAP* sprite[10];
 };
 
 struct Player {
@@ -99,12 +101,10 @@ struct Player {
 		.cx = 0,
 		.cy = 0,
 		.angle = 0.0f,
+		.speed = 50,
 		.sprite = NULL },
 	.trace = {
-		.width = 0,
-		.height = 0,
-		.tint_factor = 0,
-		.sprite = NULL },
+		.tint_factor = 0 },
 	.body_id = b2_nullBodyId,
 	.tracing = false };
 
@@ -160,16 +160,34 @@ void init_sprites() {
 	sprites.station_a = grab_sprite(48, 420, 48, 48);
 	sprites.station_b = grab_sprite(0, 92, 56, 56);
 	sprites.station_c = grab_sprite(0, 32, 60, 60);
-	
-	sprites.trace_thin = al_load_bitmap("assets/trace_thin.png");
-	sprites.trace_medium = al_load_bitmap("assets/trace_medium.png");
-	sprites.trace_thick = al_load_bitmap("assets/trace_thick.png");
+
+	ALLEGRO_BITMAP* thin_sprite = sprites.trace_thin[9] = create(al_load_bitmap("assets/trace-thin.png"), "trace thin sprite");
+	ALLEGRO_BITMAP* medium_sprite = sprites.trace_medium[9] = create(al_load_bitmap("assets/trace-medium.png"), "trace medium sprite");
+	ALLEGRO_BITMAP* thick_sprite = sprites.trace_thick[9] = create(al_load_bitmap("assets/trace-thick.png"), "trace thick sprite");
+
+	int thin_width = al_get_bitmap_width(thin_sprite);
+	int thin_height = al_get_bitmap_height(thin_sprite);
+	int medium_width = al_get_bitmap_width(medium_sprite);
+	int medium_height = al_get_bitmap_height(medium_sprite);
+	int thick_width = al_get_bitmap_width(thick_sprite);
+	int thick_height = al_get_bitmap_height(thick_sprite);
+
+	for (int i = 0; i < 9; i++) {
+		int dh = 90 - i * 10;
+		
+		sprites.trace_thin[i] = create(al_create_sub_bitmap(thin_sprite, 0, dh, thin_width, thin_height - dh), "trace thin subimage");
+		sprites.trace_medium[i] = create(al_create_sub_bitmap(medium_sprite, 0, dh, medium_width, medium_height - dh), "trace medium subimage");
+		sprites.trace_thick[i] = create(al_create_sub_bitmap(thick_sprite, 0, dh, thick_width, thick_height - dh), "trace thick subimage");
+	}
 }
 
 void destroy_sprites() {
-	al_destroy_bitmap(sprites.trace_thick);
-	al_destroy_bitmap(sprites.trace_medium);
-	al_destroy_bitmap(sprites.trace_thin);
+	for (int i = 0; i < 10; i++) {
+		al_destroy_bitmap(sprites.trace_thick[i]);
+		al_destroy_bitmap(sprites.trace_medium[i]);
+		al_destroy_bitmap(sprites.trace_thin[i]);
+	}
+		
 	al_destroy_bitmap(sprites.station_c);
 	al_destroy_bitmap(sprites.station_b);
 	al_destroy_bitmap(sprites.station_a);
@@ -226,9 +244,11 @@ void init_player() {
 	player.ship.cx = player.ship.width / 2;
 	player.ship.cy = player.ship.height / 2;
 
-	player.trace.sprite = sprites.trace_thin;
-	player.trace.width = al_get_bitmap_width(player.trace.sprite);
-	player.trace.height = al_get_bitmap_height(player.trace.sprite);
+	for (int i = 0; i < 10; i++) {
+		player.trace.sprite[i] = sprites.trace_thin[i];
+		player.trace.width[i] = al_get_bitmap_width(player.trace.sprite[i]);
+		player.trace.height[i] = al_get_bitmap_height(player.trace.sprite[i]);
+	}
 }
 
 void init_physics() {
@@ -279,7 +299,14 @@ void process_player() {
 	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, 30.0f }), true);
 	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, 5, true);
 	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -5, true);
-	
+
+	if (key[ALLEGRO_KEY_Q]) {
+		if (player.ship.speed > 0) player.ship.speed--;
+	} else if (key[ALLEGRO_KEY_E]) {
+		if (player.ship.speed < 50) player.ship.speed++;
+	} else if (key[ALLEGRO_KEY_MINUS]) player.ship.speed = 0;
+	else if (key[ALLEGRO_KEY_EQUALS]) player.ship.speed = 50;
+
 	// Emergency braking.
 	if (key[ALLEGRO_KEY_SPACE]) {
 		float linear_damping = b2Body_GetLinearDamping(player.body_id);
@@ -288,10 +315,10 @@ void process_player() {
 		if (linear_damping < 100) b2Body_SetLinearDamping(player.body_id, linear_damping * 1.2f + 0.5f);
 		if (angular_damping < 100) b2Body_SetAngularDamping(player.body_id, angular_damping * 1.2f + 0.5f);
 	} else {
-		b2Body_SetLinearDamping(player.body_id, 0.0f);
-		b2Body_SetAngularDamping(player.body_id, 0.0f);
+		b2Body_SetLinearDamping(player.body_id, (50 - player.ship.speed) / 10.0f );
+		b2Body_SetAngularDamping(player.body_id, (50 - player.ship.speed) / 10.0f);
 	}
-
+	
 	player.tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
 }
 
@@ -311,8 +338,19 @@ void draw_player() {
 	else al_draw_rotated_bitmap(player.ship.sprite, player.ship.cx, player.ship.cy, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle, 0);
 
 	if (player.tracing) {
+		int sprite_index = (player.ship.speed - 1) / 5;
+		
 		if (player.trace.tint_factor < 255) player.trace.tint_factor += 5;
-		al_draw_tinted_rotated_bitmap(player.trace.sprite, al_map_rgb(255 - player.trace.tint_factor, 255, 255), player.trace.width / 2.0f, -player.ship.cy, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle, 0);
+
+		al_draw_tinted_rotated_bitmap(
+			player.trace.sprite[sprite_index],
+			al_map_rgb(255 - player.trace.tint_factor, 255, 255),
+			player.trace.width[sprite_index] / 2.0f,
+			-player.ship.cy,
+			player.ship.x + player.ship.cx,
+			player.ship.y + player.ship.cy,
+			player.ship.angle,
+			0);
 	} else player.trace.tint_factor = 0;
 }
 
