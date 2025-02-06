@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <math.h>
+#include <time.h>
 
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_image.h>
@@ -20,11 +22,19 @@ unsigned char key[ALLEGRO_KEY_MAX];
 float scaling_factor = 0.1f;
 float time_step = 1.0f / 60.0f;
 int sub_step_count = 4;
+int bullets_interval = 100;			// Interval between bullet shots in milliseconds.
+clock_t shot_time = 0;				// Last shot time.
 
 b2WorldId world_id;
 
+enum WeaponType {
+	ONE_BULLET = 1,
+	TWO_BULLETS = 2
+};
+
 struct Sprites {
 	ALLEGRO_BITMAP* sheet;
+	ALLEGRO_BITMAP* sheet_px;
 	ALLEGRO_BITMAP* effect_purple;
 	ALLEGRO_BITMAP* effect_yellow;
 	ALLEGRO_BITMAP* enemy_a;
@@ -70,7 +80,12 @@ struct Sprites {
 	ALLEGRO_BITMAP* trace_thin[10];
 	ALLEGRO_BITMAP* trace_medium[10];
 	ALLEGRO_BITMAP* trace_thick[10];
+	ALLEGRO_BITMAP* bullet_a;
 } sprites;
+
+struct Point {
+	int x, y;
+};
 
 struct Ship {
 	int x, y, width, height;
@@ -90,6 +105,7 @@ struct Trace {
 struct Player {
 	struct Ship ship;
 	struct Trace trace;
+	enum WeaponType weapon_type;
 	b2BodyId body_id;
 	bool tracing;
 } player = {
@@ -105,18 +121,35 @@ struct Player {
 		.sprite = NULL },
 	.trace = {
 		.tint_factor = 0 },
+	.weapon_type = ONE_BULLET,
 	.body_id = b2_nullBodyId,
 	.tracing = false };
+
+struct Bullet {
+	int start_x, start_y, x, y, width, height, cx, cy;
+	float angle;
+	b2BodyId body_id;
+	ALLEGRO_BITMAP* sprite;
+};
+
+struct Bullet bullets[1000];
+int bullet_count = 0;
 
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
 void* create(void* value, const char* description);
 ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height);
+ALLEGRO_BITMAP* grab_sprite_px(int x, int y, int width, int height);
 float pixels_to_meters(int pixels);
 int meters_to_pixels(float meters);
+struct Point rotate_point(int x, int y, int cx, int cy, float angle);
+void rotate_point_in(struct Point *point, int cx, int cy, float angle);
+b2Vec2 angle_to_vector(float angle, float scale);
+float degrees_to_radians(int degrees);
 
 void init_sprites() {
 	sprites.sheet = create(al_load_bitmap("assets/spritesheet.png"), "spritesheet");
+	sprites.sheet_px = create(al_load_bitmap("assets/spritesheet-px.png"), "spritesheet-px");
 
 	sprites.effect_purple = grab_sprite(156, 32, 32, 64);
 	sprites.effect_yellow = grab_sprite(180, 181, 32, 64);
@@ -160,6 +193,7 @@ void init_sprites() {
 	sprites.station_a = grab_sprite(48, 420, 48, 48);
 	sprites.station_b = grab_sprite(0, 92, 56, 56);
 	sprites.station_c = grab_sprite(0, 32, 60, 60);
+	sprites.bullet_a = grab_sprite_px(13, 0, 2, 9);
 
 	ALLEGRO_BITMAP* thin_sprite = sprites.trace_thin[9] = create(al_load_bitmap("assets/trace-thin.png"), "trace thin sprite");
 	ALLEGRO_BITMAP* medium_sprite = sprites.trace_medium[9] = create(al_load_bitmap("assets/trace-medium.png"), "trace medium sprite");
@@ -173,7 +207,7 @@ void init_sprites() {
 	int thick_height = al_get_bitmap_height(thick_sprite);
 
 	for (int i = 0; i < 9; i++) {
-		int dh = 90 - i * 10;
+		int dh = 45 - i * 5;
 		
 		sprites.trace_thin[i] = create(al_create_sub_bitmap(thin_sprite, 0, dh, thin_width, thin_height - dh), "trace thin subimage");
 		sprites.trace_medium[i] = create(al_create_sub_bitmap(medium_sprite, 0, dh, medium_width, medium_height - dh), "trace medium subimage");
@@ -188,6 +222,7 @@ void destroy_sprites() {
 		al_destroy_bitmap(sprites.trace_thin[i]);
 	}
 		
+	al_destroy_bitmap(sprites.bullet_a);
 	al_destroy_bitmap(sprites.station_c);
 	al_destroy_bitmap(sprites.station_b);
 	al_destroy_bitmap(sprites.station_a);
@@ -230,6 +265,7 @@ void destroy_sprites() {
 	al_destroy_bitmap(sprites.enemy_a);
 	al_destroy_bitmap(sprites.effect_yellow);
 	al_destroy_bitmap(sprites.effect_purple);
+	al_destroy_bitmap(sprites.sheet_px);
 	al_destroy_bitmap(sprites.sheet);
 }
 
@@ -292,7 +328,122 @@ void process_keyboard(ALLEGRO_EVENT* event) {
 	}
 }
 
+void init_bullet(struct Bullet* bullet) {
+	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.type = b2_dynamicBody;
+	body_def.position = (b2Vec2){ pixels_to_meters(bullet->start_x + bullet->width / 2), pixels_to_meters(bullet->start_y + bullet->height / 2) };
+	body_def.rotation = b2MakeRot(bullet->angle);
+	body_def.isBullet = true;
+
+	bullet->body_id = b2CreateBody(world_id, &body_def);
+
+	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(bullet->width) / 2, pixels_to_meters(bullet->height) / 2);
+	b2ShapeDef shape_def = b2DefaultShapeDef();
+	shape_def.density = 1.0f;
+	shape_def.friction = 0.01f;
+	shape_def.filter.groupIndex = -1;
+
+	b2CreatePolygonShape(bullet->body_id, &shape_def, &dynamic_box);
+	
+	b2Body_ApplyLinearImpulseToCenter(bullet->body_id, b2RotateVector(b2MakeRot(degrees_to_radians(-90)), angle_to_vector(bullet->angle, 20.0)), true);
+}
+
+bool bullet_shot_allowed() {
+	if (!shot_time) return true;
+
+	double duration = 1000.0 * (clock() - shot_time) / CLOCKS_PER_SEC;
+	return duration >= bullets_interval;
+}
+
+void player_shot() {
+	int bullet_width = al_get_bitmap_width(sprites.bullet_a);
+	int bullet_height = al_get_bitmap_height(sprites.bullet_a);
+	
+	if (player.weapon_type == ONE_BULLET) {
+		if (!bullet_shot_allowed()) return;
+		
+		struct Point pos = {
+			.x = player.ship.x + player.ship.cx - bullet_width / 2,
+			.y = player.ship.y - bullet_height
+		};
+
+		rotate_point_in(&pos, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle);
+		
+		bullets[bullet_count] = (struct Bullet) {
+			.sprite = sprites.bullet_a,
+			.start_x = pos.x,
+			.start_y = pos.y,
+			.x = pos.x,
+			.y = pos.y,
+			.width = bullet_width,
+			.height = bullet_height,
+			.cx = bullet_width / 2,
+			.cy = bullet_height / 2,
+			.angle = player.ship.angle
+		};
+		
+		init_bullet(&bullets[bullet_count]);
+		bullet_count++;
+
+		shot_time = clock();
+	} else if (player.weapon_type == TWO_BULLETS) {
+		if (!bullet_shot_allowed()) return;
+
+		int dx = player.ship.width / 3;
+
+		struct Point pos1 = {
+			.x = player.ship.x + dx - bullet_width / 2,
+			.y = player.ship.y - bullet_height
+		};
+
+		struct Point pos2 = {
+			.x = player.ship.x + 2 * dx - bullet_width / 2,
+			.y = player.ship.y - bullet_height
+		};
+
+		rotate_point_in(&pos1, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle);
+		rotate_point_in(&pos2, player.ship.x + player.ship.cx, player.ship.y + player.ship.cy, player.ship.angle);
+		
+		bullets[bullet_count] = (struct Bullet) {
+			.sprite = sprites.bullet_a,
+			.start_x = pos1.x,
+			.start_y = pos1.y,
+			.x = pos1.x,
+			.y = pos1.y,
+			.width = bullet_width,
+			.height = bullet_height,
+			.cx = bullet_width / 2,
+			.cy = bullet_height / 2,
+			.angle = player.ship.angle
+		};
+		
+		init_bullet(&bullets[bullet_count]);
+		bullet_count++;
+
+		bullets[bullet_count] = (struct Bullet) {
+			.sprite = sprites.bullet_a,
+			.start_x = pos2.x,
+			.start_y = pos2.y,
+			.x = pos2.x,
+			.y = pos2.y,
+			.width = bullet_width,
+			.height = bullet_height,
+			.cx = bullet_width / 2,
+			.cy = bullet_height / 2,
+			.angle = player.ship.angle
+		};
+		
+		init_bullet(&bullets[bullet_count]);
+		bullet_count++;
+
+		shot_time = clock();
+	}
+}
+
 void process_player() {
+	if (key[ALLEGRO_KEY_1]) player.weapon_type = ONE_BULLET;
+	else if (key[ALLEGRO_KEY_2]) player.weapon_type = TWO_BULLETS;
+	
 	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ -30.0f, 0.0f }), true);
 	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 30.0f, 0.0f }), true);
 	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, -30.0f }), true);
@@ -318,6 +469,8 @@ void process_player() {
 		b2Body_SetLinearDamping(player.body_id, (50 - player.ship.speed) / 10.0f );
 		b2Body_SetAngularDamping(player.body_id, (50 - player.ship.speed) / 10.0f);
 	}
+
+	if (key[ALLEGRO_KEY_W]) player_shot();
 	
 	player.tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
 }
@@ -331,6 +484,17 @@ void process_physics() {
 	player.ship.x = meters_to_pixels(position.x) - player.ship.cx;
 	player.ship.y = meters_to_pixels(position.y) - player.ship.cy;
 	player.ship.angle = b2Rot_GetAngle(rotation);
+
+	for (int i = 0; i < bullet_count; i++) {
+		struct Bullet *bullet = &bullets[i];
+
+		b2Vec2 position = b2Body_GetPosition(bullet->body_id);
+		b2Rot rotation = b2Body_GetRotation(bullet->body_id);
+
+		bullet->x = meters_to_pixels(position.x) - bullet->cx;
+		bullet->y = meters_to_pixels(position.y) - bullet->cy;
+		bullet->angle = b2Rot_GetAngle(rotation);
+	}
 }
 
 void draw_player() {
@@ -352,6 +516,15 @@ void draw_player() {
 			player.ship.angle,
 			0);
 	} else player.trace.tint_factor = 0;
+}
+
+void draw_bullets() {
+	for (int i = 0; i < bullet_count; i++) {
+		struct Bullet *bullet = &bullets[i];
+
+		if (bullet->angle == 0.0f) al_draw_bitmap(bullet->sprite, bullet->x, bullet->y, 0);
+		else al_draw_rotated_bitmap(bullet->sprite, bullet->cx, bullet->cy, bullet->x + bullet->cx, bullet->y + bullet->cy, bullet->angle, 0);
+	}
 }
 
 int main() {
@@ -398,6 +571,7 @@ int main() {
 		if (redraw && al_is_event_queue_empty(queue)) {
 			al_clear_to_color(al_map_rgb(0, 0, 0));
 			draw_player();
+			draw_bullets();
 			al_flip_display();
 
 			redraw = false;
@@ -431,8 +605,38 @@ ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height) {
 	return (ALLEGRO_BITMAP*)create(al_create_sub_bitmap(sprites.sheet, x, y, width, height), "sprite");
 }
 
+ALLEGRO_BITMAP* grab_sprite_px(int x, int y, int width, int height) {
+	return (ALLEGRO_BITMAP*)create(al_create_sub_bitmap(sprites.sheet_px, x, y, width, height), "sprite-px");
+}
+
 float pixels_to_meters(int pixels) { return pixels * scaling_factor; }
 int meters_to_pixels(float meters) { return (int)(meters / scaling_factor); }
+
+struct Point rotate_point(int x, int y, int cx, int cy, float angle) {
+	return (struct Point) {
+		.x = lroundf(cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx),
+		.y = lroundf(sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy)
+	};
+}
+
+void rotate_point_in(struct Point *point, int cx, int cy, float angle) {
+	int	x = point->x,
+		y = point->y;
+	
+	point->x = lroundf(cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx);
+	point->y = lroundf(sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy);
+}
+
+b2Vec2 angle_to_vector(float angle, float scale) {
+	return (b2Vec2) {
+		.x = cosf(angle) * scale,
+		.y = sinf(angle) * scale
+	};
+}
+
+float degrees_to_radians(int degrees) {
+	return degrees * M_PI / 180;
+}
 
 void log_msg(const char* message, const char* description) {
 	FILE* f = fopen("log.txt", "a");
