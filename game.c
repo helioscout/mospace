@@ -441,15 +441,19 @@ void player_shot() {
 }
 
 void process_player() {
+	// Defined experimentally based on ship_a (it's movement) for which it equals 30.
+	float impulse = 3.90625 * b2Body_GetMass(player.body_id);
+	float angular_impulse = 0.6510417 * b2Body_GetMass(player.body_id);
+	
 	if (key[ALLEGRO_KEY_1]) player.weapon_type = ONE_BULLET;
 	else if (key[ALLEGRO_KEY_2]) player.weapon_type = TWO_BULLETS;
 	
-	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ -30.0f, 0.0f }), true);
-	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 30.0f, 0.0f }), true);
-	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, -30.0f }), true);
-	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, 30.0f }), true);
-	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, 5, true);
-	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -5, true);
+	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ -impulse, 0.0f }), true);
+	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ impulse, 0.0f }), true);
+	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, -impulse }), true);
+	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player.body_id, b2RotateVector(b2Body_GetRotation(player.body_id), (b2Vec2){ 0.0f, impulse }), true);
+	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player.body_id, angular_impulse, true);
+	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player.body_id, -angular_impulse, true);
 
 	if (key[ALLEGRO_KEY_Q]) {
 		if (player.ship.speed > 0) player.ship.speed--;
