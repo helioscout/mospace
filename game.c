@@ -10,7 +10,9 @@
 
 #include <box2d/box2d.h>
 
+#include "types.h"
 #include "memory.c"
+#include "queries.c"
 
 #define KEY_SEEN 1
 #define KEY_RELEASED 2
@@ -79,13 +81,6 @@ struct Sprites {
 	ALLEGRO_BITMAP* trace_thick[10];
 	ALLEGRO_BITMAP* bullet_a;
 } sprites;
-
-struct Point {
-	int x;
-	int y;
-};
-
-typedef struct Point Point;
 
 Entity *player;
 
@@ -432,6 +427,24 @@ void process_player() {
 	ship->tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
 }
 
+void clean_entities() {
+	Iterator b_iter = query_iter(e_bullet, 1, op_and, &(Query*[]){
+		&(Query){ .param = &(Rectangle){ .x = 0, .y = 0, .width = display_width, .height = display_height }, .query = &query_is_outside_of_rect } });
+
+	int counter = 0;
+	Entity* bullets[max_bullets];
+
+	while (iter_next(&b_iter)) {
+		bullets[counter] = b_iter.entity;
+		counter++;
+	}
+
+	for (int i = 0; i < counter; i++) {
+		b2DestroyBody(bullets[i]->body_id);
+		entity_delete(bullets[i]);
+	}
+}
+
 void process_physics() {
 	b2World_Step(world_id, time_step, sub_step_count);
 	
@@ -538,6 +551,7 @@ int main() {
 
 		switch (event.type) {
 			case ALLEGRO_EVENT_TIMER:
+				clean_entities();
 				process_player();
 				process_physics();
 				redraw = true;

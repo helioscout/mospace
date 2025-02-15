@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -61,12 +63,20 @@ enum MaxComponentCount {
 
 enum IteratorType {
 	it_entities,
-	it_components
+	it_components,
+	it_query
+};
+
+enum QueryOperator : uint_fast8_t {
+	op_and		= 0b00000001,
+	op_or		= 0b00000010,
+	op_not		= 0b00000100
 };
 
 typedef enum EntityType EntityType;
 typedef enum ComponentType ComponentType;
 typedef enum IteratorType IteratorType;
+typedef enum QueryOperator QueryOperator;
 
 struct Entity {
 	int index;
@@ -148,10 +158,21 @@ typedef struct Sprite Sprite;
 typedef struct Ship Ship;
 typedef struct Weapon Weapon;
 
+struct Query {
+	void* param;
+	bool (*query)(Entity *entity, void *param);
+};
+
+typedef struct Query Query;
+typedef struct Iterator Iterator;
+
 struct Iterator {
 	IteratorType type;
 	uint_fast64_t e_types;
 	uint_fast64_t c_types;
+	int q_count;
+	uint_fast8_t q_ops;
+	Query* (*queries)[];
 	Entity* entity;
 	void* component;
 
@@ -159,9 +180,8 @@ struct Iterator {
 	int c_index;
 	int e_sub_index;
 	int c_sub_index;
+	Iterator* iter;
 };
-
-typedef struct Iterator Iterator;
 
 uint_fast64_t e_types_order[e_types_count] = { e_bullet, e_asteroid, e_player };
 int e_max_count[e_types_count] = { max_bullets, max_asteroids, max_players };
@@ -175,6 +195,8 @@ Entity **entities[e_types_count];
 void **components[c_types_count];
 
 void* component_set(Entity *entity, ComponentType c_type, void *c_def);
+int component_get_index(void *component, ComponentType c_type);
+bool component_set_index(void *component, ComponentType c_type, int index);
 void components_remove(Entity *entity);
 
 int e_index(EntityType type) {
@@ -230,12 +252,18 @@ Entity* entity_new(EntityType type) {
 void entity_delete(Entity *entity) {
 	int i = e_index(entity->type);
 	int index = e_max_indexes[i];
-	
-	if (index > 1 && entity->index < index - 1) entities[i][entity->index] = entities[i][index - 1];
+
+	if (index > 1 && entity->index < index - 1) {
+		// Move last entity pointer to the place of deleting one
+		// and change its index field accordingly.
+		Entity *e = entities[i][index - 1];
+		entities[i][entity->index] = e;
+		e->index = entity->index;
+	}
+
 	e_max_indexes[i] = index - 1;
 
 	components_remove(entity);
-	
 	free(entity);
 }
 
@@ -391,25 +419,22 @@ void* component_set(Entity *entity, ComponentType c_type, void *c_def) {
 bool component_remove(Entity *entity, ComponentType c_type) {
 	if ((entity->c_types & c_type) == 0) return false;
 
-	int cur_index;
 	int i = c_index(c_type);
 	int index = c_max_indexes[i];
 	void *component = entity->components[i];
+	int c_index = component_get_index(component, c_type);
 
-	switch (c_type) {
-		case c_position: cur_index = ((Position*)component)->index; break;
-		case c_size: cur_index = ((Size*)component)->index; break;
-		case c_center: cur_index = ((Center*)component)->index; break;
-		case c_rotation: cur_index = ((Rotation*)component)->index; break;
-		case c_sprite: cur_index = ((Sprite*)component)->index; break;
-		case c_ship: cur_index = ((Ship*)component)->index; break;
-		case c_weapon: cur_index = ((Weapon*)component)->index; break;
-		case c_any: return false;
+	if (c_index == -1) return false;
+	
+	if (index > 1 && c_index < index - 1) {
+		// Move last component pointer to the place of deleting one
+		// and change its index field accordingly.
+		void *c = components[i][index - 1];
+		components[i][c_index] = c;
+		component_set_index(c, c_type, c_index);
 	}
 	
-	if (index > 1 && cur_index < index - 1) components[i][cur_index] = components[i][index - 1];
 	c_max_indexes[i] = index - 1;
-
 	entity->c_types = entity->c_types & ~c_type;
 
 	free(component);
@@ -419,6 +444,34 @@ bool component_remove(Entity *entity, ComponentType c_type) {
 
 void* component_get(Entity *entity, ComponentType c_type) {
 	return (entity->c_types & c_type) ? entity->components[c_index(c_type)] : NULL;
+}
+
+int component_get_index(void *component, ComponentType c_type) {
+	switch (c_type) {
+		case c_position: return ((Position*)component)->index;
+		case c_size: return ((Size*)component)->index;
+		case c_center: return ((Center*)component)->index;
+		case c_rotation: return ((Rotation*)component)->index;
+		case c_sprite: return ((Sprite*)component)->index;
+		case c_ship: return ((Ship*)component)->index;
+		case c_weapon: return ((Weapon*)component)->index;
+		case c_any: return -1;
+	}
+}
+
+bool component_set_index(void *component, ComponentType c_type, int index) {
+	switch (c_type) {
+		case c_position: ((Position*)component)->index = index; break;
+		case c_size: ((Size*)component)->index = index; break;
+		case c_center: ((Center*)component)->index = index; break;
+		case c_rotation: ((Rotation*)component)->index = index; break;
+		case c_sprite: ((Sprite*)component)->index = index; break;
+		case c_ship: ((Ship*)component)->index = index; break;
+		case c_weapon: ((Weapon*)component)->index = index; break;
+		case c_any: return false;
+	}
+
+	return true;
 }
 
 Entity* component_entity(void *component, ComponentType c_type) {
@@ -491,6 +544,17 @@ Iterator components_iter(uint_fast64_t c_types, uint_fast64_t e_types) {
 	};
 }
 
+Iterator query_iter(uint_fast64_t e_types, int q_count, uint_fast8_t q_ops, Query* (*queries)[]) {
+	return (Iterator) {
+		.type = it_query,
+		.e_types = e_types,
+		.q_count = q_count,
+		.q_ops = q_ops,
+		.queries = queries,
+		.iter = NULL
+	};
+}
+
 bool iter_next_e_index(Iterator *iter) {
 	while (iter->e_index < e_types_count - 1) {
 		iter->e_index = iter->e_index + 1;
@@ -539,6 +603,44 @@ bool iter_next(Iterator *iter) {
 			if (iter->c_sub_index == c_max_indexes[iter->c_index] - 1) return iter_next(iter);
 
 			iter->c_sub_index = iter->c_sub_index + 1;
+		}
+	} else if (iter->type == it_query) {
+		if (iter->iter == NULL) {
+			iter->iter = malloc(sizeof(Iterator));
+			*iter->iter = entities_iter(iter->e_types);
+		}
+
+		if (!iter_next(iter->iter)) {
+			free(iter->iter);
+			return false;
+		}
+
+		while (true) {
+			bool matches[iter->q_count];
+			
+			for (int i = 0; i < iter->q_count; i++) {
+				Query *query = (*iter->queries)[i];
+				matches[i] = query->query(iter->iter->entity, query->param);
+			}
+
+			bool match = matches[0];
+
+			for (int i = 1; i < iter->q_count; i++) {
+				if (iter->q_ops & op_and) match = match && matches[i];
+				else if (iter->q_ops & op_or) match = match || matches[i];
+			}
+
+			if (iter->q_ops & op_not) match = !match;
+
+			if (match) {
+				iter->entity = iter->iter->entity;
+				break;
+			}
+
+			if (!iter_next(iter->iter)) {
+				free(iter->iter);
+				return false;
+			}
 		}
 	}
 
