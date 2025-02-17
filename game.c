@@ -249,6 +249,7 @@ void init_physics() {
 	world_id = b2CreateWorld(&world_def);
 
 	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.userData = player;
 	body_def.type = b2_dynamicBody;
 	body_def.position = (b2Vec2){ pixels_to_meters(display_center_x), pixels_to_meters(display_center_y) };
 
@@ -267,6 +268,58 @@ void init_physics() {
 void destroy_physics() {
 	b2DestroyWorld(world_id);
 	world_id = b2_nullWorldId;
+}
+
+void init_asteroid(Entity *asteroid) {
+	Position *pos = component_get(asteroid, c_position);
+	Size *size = component_get(asteroid, c_size);
+
+	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.userData = asteroid;
+	body_def.type = b2_dynamicBody;
+	body_def.position = (b2Vec2){ pixels_to_meters(pos->x + size->width / 2), pixels_to_meters(pos->y + size->height / 2) };
+
+	asteroid->body_id = b2CreateBody(world_id, &body_def);
+
+	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
+	b2ShapeDef shape_def = b2DefaultShapeDef();
+	shape_def.density = 1.0f;
+	shape_def.friction = 0.01f;
+
+	b2CreatePolygonShape(asteroid->body_id, &shape_def, &dynamic_box);
+
+	b2MassData mass_data;
+	mass_data.mass = 100.0f;
+	mass_data.center = (b2Vec2){ 0.0f, 0.0f };
+	mass_data.rotationalInertia = 50.0f;
+
+	b2Body_SetMassData(asteroid->body_id, mass_data);
+}
+
+void create_asteroids() {
+	for (int i = 0; i < 4; i ++) {
+		int x, y;
+
+		switch (i) {
+			case 0: x = 150; y = 150; break;
+			case 1: x = 600; y = 150; break;
+			case 2: x = 200; y = 400; break;
+			case 3: x = 550; y = 400; break;
+		}
+		
+		ALLEGRO_BITMAP *image = i % 2 == 1 ? sprites.meteor_detailed_large : sprites.meteor_detailed_small;
+		int width = al_get_bitmap_width(image);
+		int height = al_get_bitmap_height(image);
+		
+		Entity *asteroid = entity_new(e_asteroid);
+		component_add(asteroid, c_position, &(Position){ .x = x, .y = y });
+		component_add(asteroid, c_size, &(Size){ .width = width, .height = height });
+		component_add(asteroid, c_center, &(Center){ .cx = width / 2, .cy = height / 2 });
+		component_add(asteroid, c_rotation, &(Rotation){ .angle = 0.0f });
+		component_add(asteroid, c_sprite, &(Sprite){ .image = image });
+
+		init_asteroid(asteroid);
+	}
 }
 
 void process_keyboard(ALLEGRO_EVENT* event) {
@@ -291,6 +344,7 @@ void init_bullet(Entity *bullet) {
 	Rotation *rot = component_get(bullet, c_rotation);
 	
 	b2BodyDef body_def = b2DefaultBodyDef();
+	body_def.userData = bullet;
 	body_def.type = b2_dynamicBody;
 	body_def.position = (b2Vec2){ pixels_to_meters(pos->x + size->width / 2), pixels_to_meters(pos->y + size->height / 2) };
 	body_def.rotation = b2MakeRot(rot->angle);
@@ -475,6 +529,52 @@ void process_physics() {
 		pos->y = meters_to_pixels(position.y) - center->cy;
 		rot->angle = b2Rot_GetAngle(rotation);
 	}
+
+	Iterator a_iter = entities_iter(e_asteroid);
+
+	while (iter_next(&a_iter)) {
+		Entity *asteroid = a_iter.entity;
+		
+		b2Vec2 position = b2Body_GetPosition(asteroid->body_id);
+		b2Rot rotation = b2Body_GetRotation(asteroid->body_id);
+
+		Position *pos = component_get(asteroid, c_position);
+		Rotation *rot = component_get(asteroid, c_rotation);
+		Center *center = component_get(asteroid, c_center);
+
+		pos->x = meters_to_pixels(position.x) - center->cx;
+		pos->y = meters_to_pixels(position.y) - center->cy;
+		rot->angle = b2Rot_GetAngle(rotation);
+	}
+}
+
+bool check_bullet_asteroid_collision(Entity *entity_a, Entity *entity_b) {
+	Entity *bullet = NULL;
+
+	if (entity_a->type == e_bullet && entity_b->type & e_asteroid) bullet = entity_a;
+	else if (entity_b->type == e_bullet && entity_a->type & e_asteroid) bullet = entity_b;
+
+	if (bullet == NULL) return false;
+
+	b2DestroyBody(bullet->body_id);
+	entity_delete(bullet);
+
+	return true;
+}
+
+void process_collisions() {
+	b2ContactEvents events = b2World_GetContactEvents(world_id);
+
+	for (int i = 0; i < events.beginCount; i++) {
+		b2ContactBeginTouchEvent *event = events.beginEvents + i;
+		b2BodyId body_id_a = b2Shape_GetBody(event->shapeIdA);
+		b2BodyId body_id_b = b2Shape_GetBody(event->shapeIdB);
+
+		Entity *entity_a = b2Body_GetUserData(body_id_a);
+		Entity *entity_b = b2Body_GetUserData(body_id_b);
+
+		check_bullet_asteroid_collision(entity_a, entity_b);
+	}
 }
 
 void draw_player() {
@@ -520,6 +620,22 @@ void draw_bullets() {
 	}
 }
 
+void draw_asteroids() {
+	Iterator a_iter = entities_iter(e_asteroid);
+
+	while (iter_next(&a_iter)) {
+		Entity *asteroid = a_iter.entity;
+		
+		Position *pos = component_get(asteroid, c_position);
+		Rotation *rot = component_get(asteroid, c_rotation);
+		Center *center = component_get(asteroid, c_center);
+		Sprite *sprite = component_get(asteroid, c_sprite);
+
+		if (rot->angle == 0.0f) al_draw_bitmap(sprite->image, pos->x, pos->y, 0);
+		else al_draw_rotated_bitmap(sprite->image, center->cx, center->cy, pos->x + center->cx, pos->y + center->cy, rot->angle, 0);
+	}
+}
+
 int main() {
 	bool done = false;
 	bool redraw = true;
@@ -543,6 +659,8 @@ int main() {
 	init_keyboard();
 	init_player();
 	init_physics();
+
+	create_asteroids();
 	
 	al_start_timer(timer);
 
@@ -554,6 +672,7 @@ int main() {
 				clean_entities();
 				process_player();
 				process_physics();
+				process_collisions();
 				redraw = true;
 				break;
 				
@@ -568,6 +687,7 @@ int main() {
 			al_clear_to_color(al_map_rgb(0, 0, 0));
 			draw_player();
 			draw_bullets();
+			draw_asteroids();
 			al_flip_display();
 
 			redraw = false;
