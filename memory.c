@@ -8,13 +8,14 @@
 #include <allegro5/allegro5.h>
 #include <box2d/box2d.h>
 
-#define e_types_count 3
-#define c_types_count 7
+#define e_types_count 4
+#define c_types_count 8
 
 enum EntityType : uint_fast64_t {
 	e_bullet		= 0b0000000000000000000000000000000000000000000000000000000000000001,
 	e_asteroid		= 0b0000000000000000000000000000000000000000000000000000000000000010,
 	e_player		= 0b0000000000000000000000000000000000000000000000000000000000000100,
+	e_spark			= 0b0000000000000000000000000000000000000000000000000000000000001000,
 	e_any			= 0b1111111111111111111111111111111111111111111111111111111111111111
 };
 
@@ -26,13 +27,15 @@ enum ComponentType : uint_fast64_t {
 	c_sprite		= 0b0000000000000000000000000000000000000000000000000000000000010000,
 	c_ship			= 0b0000000000000000000000000000000000000000000000000000000000100000,
 	c_weapon		= 0b0000000000000000000000000000000000000000000000000000000001000000,
+	c_animation		= 0b0000000000000000000000000000000000000000000000000000000010000000,
 	c_any			= 0b1111111111111111111111111111111111111111111111111111111111111111
 };
 
 enum EntityIndex {
 	i_bullet		= 0,
 	i_asteroid		= 1,
-	i_player		= 2
+	i_player		= 2,
+	i_spark			= 3
 };
 
 enum ComponentIndex {
@@ -42,13 +45,15 @@ enum ComponentIndex {
 	i_rotation		= 3,
 	i_sprite		= 4,
 	i_ship			= 5,
-	i_weapon		= 6
+	i_weapon		= 6,
+	i_animation		= 7
 };
 
 enum MaxEntityCount {
 	max_bullets		= 1024,
 	max_asteroids	= 512,
-	max_players		= 1
+	max_players		= 1,
+	max_sparks		= 1024
 };
 
 enum MaxComponentCount {
@@ -58,7 +63,8 @@ enum MaxComponentCount {
 	max_rotations	= max_bullets + max_asteroids,
 	max_sprites		= max_bullets + max_asteroids,
 	max_ships		= max_players,
-	max_weapons		= max_players
+	max_weapons		= max_players,
+	max_animations	= max_sparks
 };
 
 enum IteratorType {
@@ -150,6 +156,15 @@ struct Weapon {
 	Entity* entity;
 };
 
+struct Animation {
+	int frame;						// Current game loop frame since animation start.
+	int speed;						// Game loop frames count per animation frame.
+	int count;						// Animation frames count.
+	ALLEGRO_BITMAP* (*images)[];	// Animation frames images (sprites).
+	int index;
+	Entity* entity;
+};
+
 typedef struct Position Position;
 typedef struct Size Size;
 typedef struct Center Center;
@@ -157,6 +172,7 @@ typedef struct Rotation Rotation;
 typedef struct Sprite Sprite;
 typedef struct Ship Ship;
 typedef struct Weapon Weapon;
+typedef struct Animation Animation;
 
 struct Query {
 	void* param;
@@ -183,13 +199,13 @@ struct Iterator {
 	Iterator* iter;
 };
 
-uint_fast64_t e_types_order[e_types_count] = { e_bullet, e_asteroid, e_player };
-int e_max_count[e_types_count] = { max_bullets, max_asteroids, max_players };
-int e_max_indexes[e_types_count] = { 0, 0, 0 };
+uint_fast64_t e_types_order[e_types_count] = { e_bullet, e_asteroid, e_player, e_spark };
+int e_max_count[e_types_count] = { max_bullets, max_asteroids, max_players, max_sparks };
+int e_max_indexes[e_types_count] = { 0, 0, 0, 0 };
 
-uint_fast64_t c_types_order[c_types_count] = { c_position, c_size, c_center, c_rotation, c_sprite, c_ship, c_weapon };
-int c_max_count[c_types_count] = { max_positions, max_sizes, max_centers, max_rotations, max_sprites, max_ships, max_weapons };
-int c_max_indexes[c_types_count] = { 0, 0, 0, 0, 0, 0, 0 };
+uint_fast64_t c_types_order[c_types_count] = { c_position, c_size, c_center, c_rotation, c_sprite, c_ship, c_weapon, c_animation };
+int c_max_count[c_types_count] = { max_positions, max_sizes, max_centers, max_rotations, max_sprites, max_ships, max_weapons, max_animations };
+int c_max_indexes[c_types_count] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 Entity **entities[e_types_count];
 void **components[c_types_count];
@@ -204,6 +220,7 @@ int e_index(EntityType type) {
 		case e_bullet: return i_bullet;
 		case e_asteroid: return i_asteroid;
 		case e_player: return i_player;
+		case e_spark: return i_spark;
 		case e_any: return -1;
 	}
 }
@@ -217,6 +234,7 @@ int c_index(ComponentType type) {
 		case c_sprite: return i_sprite;
 		case c_ship: return i_ship;
 		case c_weapon: return i_weapon;
+		case c_animation: return i_animation;
 		case c_any: return -1;
 	}
 }
@@ -345,6 +363,18 @@ void* component_add(Entity *entity, ComponentType c_type, void *c_def) {
 			break;
 		}
 
+		case c_animation: {
+			Animation *animation = malloc(sizeof(Animation));
+			animation->frame = ((Animation*)c_def)->frame;
+			animation->speed = ((Animation*)c_def)->speed;
+			animation->count = ((Animation*)c_def)->count;
+			animation->images = ((Animation*)c_def)->images;
+			animation->index = index;
+			animation->entity = entity;
+			component = animation;
+			break;
+		}
+
 		case c_any: return NULL;
 	}
 
@@ -408,6 +438,15 @@ void* component_set(Entity *entity, ComponentType c_type, void *c_def) {
 				weapon->type = ((Weapon*)c_def)->type;
 				break;
 			}
+
+			case c_animation: {
+				Animation *animation = component;
+				animation->frame = ((Animation*)c_def)->frame;
+				animation->speed = ((Animation*)c_def)->speed;
+				animation->count = ((Animation*)c_def)->count;
+				animation->images = ((Animation*)c_def)->images;
+				break;
+			}
 				
 			case c_any: return NULL;
 		}
@@ -455,6 +494,7 @@ int component_get_index(void *component, ComponentType c_type) {
 		case c_sprite: return ((Sprite*)component)->index;
 		case c_ship: return ((Ship*)component)->index;
 		case c_weapon: return ((Weapon*)component)->index;
+		case c_animation: return ((Animation*)component)->index;
 		case c_any: return -1;
 	}
 }
@@ -468,6 +508,7 @@ bool component_set_index(void *component, ComponentType c_type, int index) {
 		case c_sprite: ((Sprite*)component)->index = index; break;
 		case c_ship: ((Ship*)component)->index = index; break;
 		case c_weapon: ((Weapon*)component)->index = index; break;
+		case c_animation: ((Animation*)component)->index = index; break;
 		case c_any: return false;
 	}
 
@@ -483,6 +524,7 @@ Entity* component_entity(void *component, ComponentType c_type) {
 		case c_sprite: return ((Sprite*)component)->entity;
 		case c_ship: return ((Ship*)component)->entity;
 		case c_weapon: return ((Weapon*)component)->entity;
+		case c_animation: return ((Animation*)component)->entity;
 		case c_any: return NULL;
 	}
 }
@@ -495,6 +537,7 @@ void components_remove(Entity *entity) {
 	if (entity->c_types & c_sprite) component_remove(entity, c_sprite);
 	if (entity->c_types & c_ship) component_remove(entity, c_ship);
 	if (entity->c_types & c_weapon) component_remove(entity, c_weapon);
+	if (entity->c_types & c_animation) component_remove(entity, c_animation);
 }
 
 int entities_count(uint_fast64_t e_types) {
@@ -503,6 +546,7 @@ int entities_count(uint_fast64_t e_types) {
 	if (e_types & e_bullet) count += e_max_indexes[e_index(e_bullet)];
 	if (e_types & e_asteroid) count += e_max_indexes[e_index(e_asteroid)];
 	if (e_types & e_player) count += e_max_indexes[e_index(e_player)];
+	if (e_types & e_spark) count += e_max_indexes[e_index(e_spark)];
 
 	return count;
 }
@@ -517,6 +561,7 @@ int components_count(uint_fast64_t c_types) {
 	if (c_types & c_sprite) count += c_max_indexes[c_index(c_sprite)];
 	if (c_types & c_ship) count += c_max_indexes[c_index(c_ship)];
 	if (c_types & c_weapon) count += c_max_indexes[c_index(c_weapon)];
+	if (c_types & c_animation) count += c_max_indexes[c_index(c_animation)];
 
 	return count;
 }

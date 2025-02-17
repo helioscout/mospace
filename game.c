@@ -80,6 +80,7 @@ struct Sprites {
 	ALLEGRO_BITMAP* trace_medium[10];
 	ALLEGRO_BITMAP* trace_thick[10];
 	ALLEGRO_BITMAP* bullet_a;
+	ALLEGRO_BITMAP* spark[3];
 } sprites;
 
 Entity *player;
@@ -162,9 +163,15 @@ void init_sprites() {
 		sprites.trace_medium[i] = create(al_create_sub_bitmap(medium_sprite, 0, dh, medium_width, medium_height - dh), "trace medium subimage");
 		sprites.trace_thick[i] = create(al_create_sub_bitmap(thick_sprite, 0, dh, thick_width, thick_height - dh), "trace thick subimage");
 	}
+
+	sprites.spark[0] = grab_sprite_px(34, 0, 10, 8);
+	sprites.spark[1] = grab_sprite_px(45, 0, 7, 8);
+	sprites.spark[2] = grab_sprite_px(54, 0, 9, 8);
 }
 
 void destroy_sprites() {
+	for (int i = 0; i < 3; i++) al_destroy_bitmap(sprites.spark[i]);
+	
 	for (int i = 0; i < 10; i++) {
 		al_destroy_bitmap(sprites.trace_thick[i]);
 		al_destroy_bitmap(sprites.trace_medium[i]);
@@ -320,6 +327,12 @@ void create_asteroids() {
 
 		init_asteroid(asteroid);
 	}
+}
+
+void create_spark(int x, int y) {
+	Entity *spark = entity_new(e_spark);
+	component_add(spark, c_position, &(Position){ .x = x, .y = y });
+	component_add(spark, c_animation, &(Animation){ .frame = 0, .speed = 2, .count = 3, .images = &sprites.spark });
 }
 
 void process_keyboard(ALLEGRO_EVENT* event) {
@@ -556,6 +569,11 @@ bool check_bullet_asteroid_collision(Entity *entity_a, Entity *entity_b) {
 
 	if (bullet == NULL) return false;
 
+	Position *pos = component_get(bullet, c_position);
+	Center *center = component_get(bullet, c_center);
+
+	create_spark(pos->x + center->cx, pos->y + center->cy);
+
 	b2DestroyBody(bullet->body_id);
 	entity_delete(bullet);
 
@@ -575,6 +593,26 @@ void process_collisions() {
 
 		check_bullet_asteroid_collision(entity_a, entity_b);
 	}
+}
+
+void process_animations() {
+	int counter = 0;
+	Entity* sparks[max_sparks];
+
+	Iterator a_iter = components_iter(c_animation, e_any);
+
+	while (iter_next(&a_iter)) {
+		Animation *a = a_iter.component;
+
+		a->frame++;
+		
+		if (a->frame == a->count * a->speed) {
+			sparks[counter] = a->entity;
+			counter++;
+		}
+	}
+
+	for (int i = 0; i < counter; i++) entity_delete(sparks[i]);
 }
 
 void draw_player() {
@@ -636,6 +674,20 @@ void draw_asteroids() {
 	}
 }
 
+void draw_sparks() {
+	Iterator s_iter = entities_iter(e_spark);
+
+	while (iter_next(&s_iter)) {
+		Entity *spark = s_iter.entity;
+
+		Position *pos = component_get(spark, c_position);
+		Animation *a = component_get(spark, c_animation);
+		ALLEGRO_BITMAP *image = (*a->images)[a->frame / a->speed];
+
+		al_draw_bitmap(image, pos->x - al_get_bitmap_width(image) / 2.0, pos->y - al_get_bitmap_height(image) / 2.0, 0);
+	}
+}
+
 int main() {
 	bool done = false;
 	bool redraw = true;
@@ -670,6 +722,7 @@ int main() {
 		switch (event.type) {
 			case ALLEGRO_EVENT_TIMER:
 				clean_entities();
+				process_animations();
 				process_player();
 				process_physics();
 				process_collisions();
@@ -688,6 +741,7 @@ int main() {
 			draw_player();
 			draw_bullets();
 			draw_asteroids();
+			draw_sparks();
 			al_flip_display();
 
 			redraw = false;
