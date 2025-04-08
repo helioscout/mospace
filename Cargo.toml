@@ -1,0 +1,21 @@
+[package]
+name = "mospace"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+allegro = "0.0.48"
+allegro_image = "0.0.48"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = false
+split-debuginfo = '...'  # Platform-specific.
+debug-assertions = false
+overflow-checks = false
+incremental = false
+rpath = false
