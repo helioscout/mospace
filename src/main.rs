@@ -1,4 +1,6 @@
 use std::rc::Weak;
+use std::rc::Rc;
+use std::collections::HashMap;
 
 use allegro::*;
 use allegro_image::*;
@@ -7,61 +9,67 @@ use flecs_ecs::prelude::*;
 
 const DISPLAY_WIDTH: i32 = 800;
 const DISPLAY_HEIGHT: i32 = 600;
+const DISPLAY_CENTER_X: i32 = DISPLAY_WIDTH / 2;
+const DISPLAY_CENTER_Y: i32 = DISPLAY_HEIGHT / 2;
 
-struct Sprites {
+#[derive(Debug)]
+enum WeaponKind {
+	OneBullet = 1,
+	TwoBullets = 2
+}
+
+struct Sprites<'a> {
 	sheet: Bitmap,
 	sheet_px: Bitmap,
-	effect_purple: Weak<SubBitmap>,
-	effect_yellow: Weak<SubBitmap>,
-	enemy_a: Weak<SubBitmap>,
-	enemy_b: Weak<SubBitmap>,
-	enemy_c: Weak<SubBitmap>,
-	enemy_d: Weak<SubBitmap>,
-	enemy_e: Weak<SubBitmap>,
-	meteor_detailed_large: Weak<SubBitmap>,
-	meteor_detailed_small: Weak<SubBitmap>,
-	meteor_large: Weak<SubBitmap>,
-	meteor_small: Weak<SubBitmap>,
-	meteor_square_detailed_large: Weak<SubBitmap>,
-	meteor_square_detailed_small: Weak<SubBitmap>,
-	meteor_square_large: Weak<SubBitmap>,
-	meteor_square_small: Weak<SubBitmap>,
-	satellite_a: Weak<SubBitmap>,
-	satellite_b: Weak<SubBitmap>,
-	satellite_c: Weak<SubBitmap>,
-	satellite_d: Weak<SubBitmap>,
-	ship_a: Weak<SubBitmap>,
-	ship_b: Weak<SubBitmap>,
-	ship_c: Weak<SubBitmap>,
-	ship_d: Weak<SubBitmap>,
-	ship_e: Weak<SubBitmap>,
-	ship_f: Weak<SubBitmap>,
-	ship_g: Weak<SubBitmap>,
-	ship_h: Weak<SubBitmap>,
-	ship_i: Weak<SubBitmap>,
-	ship_j: Weak<SubBitmap>,
-	ship_k: Weak<SubBitmap>,
-	ship_l: Weak<SubBitmap>,
-	ship_sides_a: Weak<SubBitmap>,
-	ship_sides_b: Weak<SubBitmap>,
-	ship_sides_c: Weak<SubBitmap>,
-	ship_sides_d: Weak<SubBitmap>,
-	star_large: Weak<SubBitmap>,
-	star_medium: Weak<SubBitmap>,
-	star_small: Weak<SubBitmap>,
-	star_tiny: Weak<SubBitmap>,
-	station_a: Weak<SubBitmap>,
-	station_b: Weak<SubBitmap>,
-	station_c: Weak<SubBitmap>,
-	trace_thin: Vec<Bitmap>,
-	trace_medium: Vec<Bitmap>,
-	trace_thick: Vec<Bitmap>,
-	bullet_a: Weak<SubBitmap>,
+	sprites: HashMap<&'a str, Weak<SubBitmap>>,
+	traces: HashMap<&'a str, Vec<Bitmap>>,
 	spark: [Weak<SubBitmap>; 3]
 }
 
-struct Sprite {
-    image_key: String
+#[derive(Debug)]
+struct Trace<'a> {
+    key: &'a str,
+    tint: u8
+}
+
+#[derive(Debug, Component)]
+struct Sprite<'a> {
+    key: &'a str
+}
+
+#[derive(Debug, Component)]
+struct Size {
+    width: i32,
+    height: i32
+}
+
+#[derive(Debug, Component)]
+struct Position {
+    x: f32,
+    y: f32
+}
+
+#[derive(Debug, Component)]
+struct Center {
+    cx: f32,       // Center relative x coordinate (width / 2).
+    cy: f32        // Center relative y coordinate (height / 2).
+}
+
+#[derive(Debug, Component)]
+struct Rotation {
+    angle: f32    // Rotation angle in radians.
+}
+
+#[derive(Debug, Component)]
+struct Ship<'a> {
+    speed: i32,       // Maximum ship speed from 0 to 50 (anti-damping).
+    tracing: bool,    // Ship tracing sign (draw trace).
+    trace: Trace<'a>
+}
+
+#[derive(Debug, Component)]
+struct Weapon {
+    kind: WeaponKind
 }
 
 fn main() {
@@ -80,6 +88,9 @@ fn main() {
     queue.register_event_source(timer.get_event_source());
 
     let sprites = init_sprites(&core);
+    let world = World::new();
+    
+    init_player(&world, &sprites);
 
     timer.start();
 
@@ -93,57 +104,111 @@ fn main() {
         if done { break 'exit; }
         
         if redraw && queue.is_empty() {
+            core.clear_to_color(Color::from_rgb_f(0.0, 0.0, 0.0));
+            draw_player(&core, &world, &sprites);
+            core.flip_display();
+            
             redraw = false;
         }
     }
 }
 
+fn draw_player(core: &Core, world: &World, sprites: &Sprites) {
+    let player = world.lookup("player");
+    
+    player.get::<(&Rotation, &Sprite, &Position, &Center, &mut Ship)>(|(rot, sprite, pos, center, ship)| {
+        if rot.angle == 0.0 {
+            core.draw_bitmap(bmp_sprite(&sprites, sprite.key).as_ref(), pos.x, pos.y, Flag::zero());
+        } else {
+            core.draw_rotated_bitmap(bmp_sprite(&sprites, sprite.key).as_ref(), center.cx, center.cy, pos.x + center.cx, pos.y + center.cy, rot.angle, Flag::zero());
+        }
+
+        if ship.tracing {
+            let index = ((ship.speed - 1) / 5) as usize;
+            let bitmap = &sprites.traces.get(ship.trace.key).unwrap()[index];
+
+            if ship.trace.tint < 255 { ship.trace.tint += 5; }
+
+            core.draw_tinted_rotated_bitmap(
+                bitmap,
+                Color::from_rgb(255 - ship.trace.tint, 255, 255),
+                (bitmap.get_width() / 2) as f32,
+                -center.cy,
+                pos.x + center.cx,
+                pos.y + center.cy,
+                rot.angle,
+                Flag::zero());
+        } else { ship.trace.tint = 0; }
+    });
+}
+
+fn init_player(world: &World, sprites: &Sprites) {
+    let ship = bmp_sprite(sprites, "ship_a");
+    let width = ship.get_width();
+    let height = ship.get_height();
+
+    world.entity_named("player")
+        .set(Sprite { key: "ship_a" })
+        .set(Size { width, height })
+        .set(Position { x: (DISPLAY_CENTER_X - width / 2) as f32, y: (DISPLAY_CENTER_Y - height / 2) as f32 })
+        .set(Center { cx: (width / 2) as f32, cy: (height / 2) as f32 })
+        .set(Rotation { angle: 0.0 })
+        .set(Weapon { kind: WeaponKind::OneBullet })
+        .set(Ship { speed: 50, tracing: false, trace: Trace { key: "thin", tint: 0 }});
+}
+
+fn bmp_sprite(sprites: &Sprites, key: &str) -> Rc<SubBitmap> {
+    sprites.sprites.get(key).unwrap().upgrade().unwrap()
+}
+
 fn init_sprites(core: &Core) -> Sprites {
     let sheet = Bitmap::load(core, "assets/spritesheet.png").unwrap();
     let sheet_px = Bitmap::load(core, "assets/spritesheet-px.png").unwrap();
-    let effect_purple = sheet.create_sub_bitmap(156, 32, 32, 64).unwrap();
-    let effect_yellow = sheet.create_sub_bitmap(180, 181, 32, 64).unwrap();
-    let enemy_a = sheet.create_sub_bitmap(0, 420, 48, 48).unwrap();
-    let enemy_b = sheet.create_sub_bitmap(100, 140, 48, 48).unwrap();
-	let enemy_c = sheet.create_sub_bitmap(0, 0, 64, 32).unwrap();
-	let enemy_d = sheet.create_sub_bitmap(100, 188, 48, 48).unwrap();
-	let enemy_e = sheet.create_sub_bitmap(100, 332, 48, 48).unwrap();
-	let meteor_detailed_large = sheet.create_sub_bitmap(144, 428, 48, 48).unwrap();
-	let meteor_detailed_small = sheet.create_sub_bitmap(144, 476, 32, 32).unwrap();
-	let meteor_large = sheet.create_sub_bitmap(144, 380, 48, 48).unwrap();
-	let meteor_small = sheet.create_sub_bitmap(112, 0, 32, 32).unwrap();
-	let meteor_square_detailed_large = sheet.create_sub_bitmap(108, 32, 48, 48).unwrap();
-	let meteor_square_detailed_small = sheet.create_sub_bitmap(152, 96, 32, 32).unwrap();
-	let meteor_square_large = sheet.create_sub_bitmap(52, 340, 48, 48).unwrap();
-	let meteor_square_small = sheet.create_sub_bitmap(144, 0, 32, 32).unwrap();
-	let satellite_a = sheet.create_sub_bitmap(0, 148, 52, 44).unwrap();
-	let satellite_b = sheet.create_sub_bitmap(0, 192, 52, 52).unwrap();
-	let satellite_c = sheet.create_sub_bitmap(0, 332, 52, 36).unwrap();
-	let satellite_d = sheet.create_sub_bitmap(0, 296, 52, 36).unwrap();
-	let ship_a = sheet.create_sub_bitmap(52, 388, 32, 24).unwrap();
-	let ship_b = sheet.create_sub_bitmap(148, 341, 16, 32).unwrap();
-	let ship_c = sheet.create_sub_bitmap(48, 468, 48, 32).unwrap();
-	let ship_d = sheet.create_sub_bitmap(64, 0, 48, 32).unwrap();
-	let ship_e = sheet.create_sub_bitmap(96, 436, 48, 48).unwrap();
-	let ship_f = sheet.create_sub_bitmap(96, 388, 48, 48).unwrap();
-	let ship_g = sheet.create_sub_bitmap(60, 32, 48, 48).unwrap();
-	let ship_h = sheet.create_sub_bitmap(56, 92, 48, 48).unwrap();
-	let ship_i = sheet.create_sub_bitmap(148, 261, 32, 48).unwrap();
-	let ship_j = sheet.create_sub_bitmap(52, 292, 48, 48).unwrap();
-	let ship_k = sheet.create_sub_bitmap(148, 181, 32, 48).unwrap();
-	let ship_l = sheet.create_sub_bitmap(52, 244, 48, 48).unwrap();
-	let ship_sides_a = sheet.create_sub_bitmap(148, 128, 42, 53).unwrap();
-	let ship_sides_b = sheet.create_sub_bitmap(0, 244, 52, 52).unwrap();
-	let ship_sides_c = sheet.create_sub_bitmap(0, 368, 52, 52).unwrap();
-	let ship_sides_d = sheet.create_sub_bitmap(0, 468, 48, 32).unwrap();
-	let star_large = sheet.create_sub_bitmap(52, 196, 48, 48).unwrap();
-	let star_medium = sheet.create_sub_bitmap(52, 148, 48, 48).unwrap();
-	let star_small = sheet.create_sub_bitmap(96, 484, 16, 16).unwrap();
-	let star_tiny = sheet.create_sub_bitmap(112, 484, 16, 16).unwrap();
-	let station_a = sheet.create_sub_bitmap(48, 420, 48, 48).unwrap();
-	let station_b = sheet.create_sub_bitmap(0, 92, 56, 56).unwrap();
-	let station_c = sheet.create_sub_bitmap(0, 32, 60, 60).unwrap();
-    let bullet_a = sheet_px.create_sub_bitmap(13, 0, 2, 9).unwrap();
+
+    let sprites: HashMap<&str, Weak<SubBitmap>> = HashMap::from([
+        ("effect_purple", sheet.create_sub_bitmap(156, 32, 32, 64).unwrap()),
+        ("effect_yellow", sheet.create_sub_bitmap(180, 181, 32, 64).unwrap()),
+        ("enemy_a", sheet.create_sub_bitmap(0, 420, 48, 48).unwrap()),
+        ("enemy_b", sheet.create_sub_bitmap(100, 140, 48, 48).unwrap()),
+    	("enemy_c", sheet.create_sub_bitmap(0, 0, 64, 32).unwrap()),
+    	("enemy_d", sheet.create_sub_bitmap(100, 188, 48, 48).unwrap()),
+    	("enemy_e", sheet.create_sub_bitmap(100, 332, 48, 48).unwrap()),
+    	("meteor_detailed_large", sheet.create_sub_bitmap(144, 428, 48, 48).unwrap()),
+    	("meteor_detailed_small", sheet.create_sub_bitmap(144, 476, 32, 32).unwrap()),
+    	("meteor_large", sheet.create_sub_bitmap(144, 380, 48, 48).unwrap()),
+    	("meteor_small", sheet.create_sub_bitmap(112, 0, 32, 32).unwrap()),
+    	("meteor_square_detailed_large", sheet.create_sub_bitmap(108, 32, 48, 48).unwrap()),
+    	("meteor_square_detailed_small", sheet.create_sub_bitmap(152, 96, 32, 32).unwrap()),
+    	("meteor_square_large", sheet.create_sub_bitmap(52, 340, 48, 48).unwrap()),
+    	("meteor_square_small", sheet.create_sub_bitmap(144, 0, 32, 32).unwrap()),
+    	("satellite_a", sheet.create_sub_bitmap(0, 148, 52, 44).unwrap()),
+    	("satellite_b", sheet.create_sub_bitmap(0, 192, 52, 52).unwrap()),
+    	("satellite_c", sheet.create_sub_bitmap(0, 332, 52, 36).unwrap()),
+    	("satellite_d", sheet.create_sub_bitmap(0, 296, 52, 36).unwrap()),
+    	("ship_a", sheet.create_sub_bitmap(52, 388, 32, 24).unwrap()),
+    	("ship_b", sheet.create_sub_bitmap(148, 341, 16, 32).unwrap()),
+    	("ship_c", sheet.create_sub_bitmap(48, 468, 48, 32).unwrap()),
+    	("ship_d", sheet.create_sub_bitmap(64, 0, 48, 32).unwrap()),
+    	("ship_e", sheet.create_sub_bitmap(96, 436, 48, 48).unwrap()),
+    	("ship_f", sheet.create_sub_bitmap(96, 388, 48, 48).unwrap()),
+    	("ship_g", sheet.create_sub_bitmap(60, 32, 48, 48).unwrap()),
+    	("ship_h", sheet.create_sub_bitmap(56, 92, 48, 48).unwrap()),
+    	("ship_i", sheet.create_sub_bitmap(148, 261, 32, 48).unwrap()),
+    	("ship_j", sheet.create_sub_bitmap(52, 292, 48, 48).unwrap()),
+    	("ship_k", sheet.create_sub_bitmap(148, 181, 32, 48).unwrap()),
+    	("ship_l", sheet.create_sub_bitmap(52, 244, 48, 48).unwrap()),
+    	("ship_sides_a", sheet.create_sub_bitmap(148, 128, 42, 53).unwrap()),
+    	("ship_sides_b", sheet.create_sub_bitmap(0, 244, 52, 52).unwrap()),
+    	("ship_sides_c", sheet.create_sub_bitmap(0, 368, 52, 52).unwrap()),
+    	("ship_sides_d", sheet.create_sub_bitmap(0, 468, 48, 32).unwrap()),
+    	("star_large", sheet.create_sub_bitmap(52, 196, 48, 48).unwrap()),
+    	("star_medium", sheet.create_sub_bitmap(52, 148, 48, 48).unwrap()),
+    	("star_small", sheet.create_sub_bitmap(96, 484, 16, 16).unwrap()),
+    	("star_tiny", sheet.create_sub_bitmap(112, 484, 16, 16).unwrap()),
+    	("station_a", sheet.create_sub_bitmap(48, 420, 48, 48).unwrap()),
+    	("station_b", sheet.create_sub_bitmap(0, 92, 56, 56).unwrap()),
+    	("station_c", sheet.create_sub_bitmap(0, 32, 60, 60).unwrap()),
+        ("bullet_a", sheet_px.create_sub_bitmap(13, 0, 2, 9).unwrap())]);
 
 	let mut trace_thin = Vec::with_capacity(10);
 	let mut trace_medium = Vec::with_capacity(10);
@@ -171,16 +236,14 @@ fn init_sprites(core: &Core) -> Sprites {
     trace_thin.push(thin_sprite);
     trace_medium.push(medium_sprite);
     trace_thick.push(thick_sprite);
+
+	let traces: HashMap<&str, Vec<Bitmap>> = HashMap::from([
+	    ("thin", trace_thin), ("medium", trace_medium), ("thick", trace_thick)]);
 	
 	let spark: [Weak<SubBitmap>; 3] = [
 	    sheet_px.create_sub_bitmap(34, 0, 10, 8).unwrap(),
 	    sheet_px.create_sub_bitmap(45, 0, 7, 8).unwrap(),
         sheet_px.create_sub_bitmap(54, 0, 9, 8).unwrap()];
 
-    Sprites { sheet, sheet_px, effect_purple, effect_yellow, enemy_a, enemy_b, enemy_c, enemy_d, enemy_e,
-        meteor_detailed_large, meteor_detailed_small, meteor_large, meteor_small, meteor_square_detailed_large,
-        meteor_square_detailed_small, meteor_square_large, meteor_square_small, satellite_a, satellite_b,
-        satellite_c, satellite_d, ship_a, ship_b, ship_c, ship_d, ship_e, ship_f, ship_g, ship_h, ship_i, ship_j,
-        ship_k, ship_l, ship_sides_a, ship_sides_b, ship_sides_c, ship_sides_d, star_large, star_medium, star_small,
-        star_tiny, station_a, station_b, station_c, trace_thin, trace_medium, trace_thick, bullet_a, spark }
+    Sprites { sheet, sheet_px, sprites, traces, spark }
 }
