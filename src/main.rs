@@ -4,13 +4,15 @@ use std::collections::HashMap;
 
 use allegro::*;
 use allegro_image::*;
-
 use flecs_ecs::prelude::*;
+use rapier2d::prelude::*;
 
 const DISPLAY_WIDTH: i32 = 800;
 const DISPLAY_HEIGHT: i32 = 600;
 const DISPLAY_CENTER_X: i32 = DISPLAY_WIDTH / 2;
 const DISPLAY_CENTER_Y: i32 = DISPLAY_HEIGHT / 2;
+const KEY_SEEN: u32 = 1;
+const KEY_RELEASED: u32 = 2;
 
 #[derive(Debug)]
 enum WeaponKind {
@@ -72,7 +74,29 @@ struct Weapon {
     kind: WeaponKind
 }
 
+#[derive(Debug, Component)]
+struct Handle {
+    handle: RigidBodyHandle
+}
+
 fn main() {
+    let mut key: HashMap<KeyCode, u32> = HashMap::from([
+        (KeyCode::Up, 0),
+        (KeyCode::Down, 0),
+        (KeyCode::Left, 0),
+        (KeyCode::Right, 0),
+        (KeyCode::A, 0),
+        (KeyCode::D, 0),
+        (KeyCode::Q, 0),
+        (KeyCode::E, 0),
+        (KeyCode::W, 0),
+        (KeyCode::_1, 0),
+        (KeyCode::_2, 0),
+        (KeyCode::Minus, 0),
+        (KeyCode::Equals, 0),
+        (KeyCode::Space, 0)
+    ]);
+    
     let mut done = false;
     let mut redraw = true;
     let core = Core::init().unwrap();
@@ -89,15 +113,73 @@ fn main() {
 
     let sprites = init_sprites(&core);
     let world = World::new();
+    let mut space = RigidBodySet::new();
+    let mut colliders = ColliderSet::new();
+    let gravity = vector![0.0, 0.0];
+    let integration_parameters = IntegrationParameters::default();
+    let mut physics_pipeline = PhysicsPipeline::new();
+    let mut island_manager = IslandManager::new();
+    let mut broad_phase = DefaultBroadPhase::new();
+    let mut narrow_phase = NarrowPhase::new();
+    let mut impulse_joint_set = ImpulseJointSet::new();
+    let mut multibody_joint_set = MultibodyJointSet::new();
+    let mut ccd_solver = CCDSolver::new();
+    let mut query_pipeline = QueryPipeline::new();
+    let physics_hooks = ();
+    let event_handler = ();
     
     init_player(&world, &sprites);
+    init_physics(&world, &mut space, &mut colliders);
 
     timer.start();
 
     'exit: loop {
         match queue.wait_for_event() {
             DisplayClose {..} => done = true,
-            TimerTick {..} => redraw = true,
+            KeyDown { keycode, ..} => {
+                if key.contains_key(&keycode) { key.insert(keycode, KEY_SEEN | KEY_RELEASED); }
+            },
+            KeyUp { keycode, ..} => {
+                if key.contains_key(&keycode) { key.insert(keycode, key.get(&keycode).unwrap() & KEY_RELEASED); }
+            },
+            TimerTick {..} => {
+                process_player(&key, &world, &mut space);
+                
+                physics_pipeline.step(
+                    &gravity,
+                    &integration_parameters,
+                    &mut island_manager,
+                    &mut broad_phase,
+                    &mut narrow_phase,
+                    &mut space,
+                    &mut colliders,
+                    &mut impulse_joint_set,
+                    &mut multibody_joint_set,
+                    &mut ccd_solver,
+                    Some(&mut query_pipeline),
+                    &physics_hooks,
+                    &event_handler
+                );
+
+                process_physics(&world, &space);
+
+                key.insert(KeyCode::Up, key.get(&KeyCode::Up).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Down, key.get(&KeyCode::Down).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Left, key.get(&KeyCode::Left).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Right, key.get(&KeyCode::Right).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::A, key.get(&KeyCode::A).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::D, key.get(&KeyCode::D).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Q, key.get(&KeyCode::Q).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::E, key.get(&KeyCode::E).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::W, key.get(&KeyCode::W).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::_1, key.get(&KeyCode::_1).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::_2, key.get(&KeyCode::_2).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Minus, key.get(&KeyCode::Minus).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Equals, key.get(&KeyCode::Equals).unwrap() & KEY_SEEN);
+                key.insert(KeyCode::Space, key.get(&KeyCode::Space).unwrap() & KEY_SEEN);
+                
+                redraw = true
+            },
             _ => ()
         }
 
@@ -111,6 +193,76 @@ fn main() {
             redraw = false;
         }
     }
+}
+
+fn process_physics(world: &World, space: &RigidBodySet) {
+    world.lookup("player").get::<(&Handle, &mut Position, &mut Rotation, &Center)>(|(handle, pos, rot, center)| {
+        let body = space.get(handle.handle).unwrap();
+
+        pos.x = body.translation().x - center.cx;
+        pos.y = body.translation().y - center.cy;
+        rot.angle = body.rotation().angle();
+    });
+}
+
+fn process_player(key: &HashMap<KeyCode, u32>, world: &World, space: &mut RigidBodySet) {
+    world.lookup("player").get::<(&Handle, &mut Weapon, &mut Ship)>(|(handle, weapon, ship)| {
+        let body = space.get_mut(handle.handle).unwrap();
+    	let impulse = 30.0 * body.mass();
+    	let angular_impulse = 13.0 * body.mass();
+
+        ship.tracing = false;
+    	
+        if *key.get(&KeyCode::_1).unwrap() > 0 {
+            weapon.kind = WeaponKind::OneBullet;
+        } else if *key.get(&KeyCode::_2).unwrap() > 0 {
+            weapon.kind = WeaponKind::TwoBullets;
+        }
+
+        if *key.get(&KeyCode::A).unwrap() > 0 {
+            body.apply_impulse(vector![-impulse, 0.0], true);
+            ship.tracing = true;
+        }
+        if *key.get(&KeyCode::D).unwrap() > 0 {
+            body.apply_impulse(vector![impulse, 0.0], true);
+            ship.tracing = true;
+        }
+        if *key.get(&KeyCode::Up).unwrap() > 0 {
+            body.apply_impulse(vector![0.0, -impulse], true);
+            ship.tracing = true;
+        }
+        if *key.get(&KeyCode::Down).unwrap() > 0 {
+            body.apply_impulse(vector![0.0, impulse], true);
+            ship.tracing = true;
+        }
+        if *key.get(&KeyCode::Right).unwrap() > 0 {
+            body.apply_torque_impulse(angular_impulse, true);
+        }
+        if *key.get(&KeyCode::Left).unwrap() > 0 {
+            body.apply_torque_impulse(-angular_impulse, true);
+        }
+
+        if *key.get(&KeyCode::Q).unwrap() > 0 {
+            if ship.speed > 0 { ship.speed = ship.speed - 1; }
+        } else if *key.get(&KeyCode::E).unwrap() > 0 {
+            if ship.speed < 50 { ship.speed = ship.speed + 1; }
+        } else if *key.get(&KeyCode::Minus).unwrap() > 0 {
+            ship.speed = 0;
+        } else if *key.get(&KeyCode::Equals).unwrap() > 0 {
+            ship.speed = 50;
+        }
+
+        if *key.get(&KeyCode::Space).unwrap() > 0 {
+            let linear_damping = body.linear_damping();
+            let angular_damping = body.angular_damping();
+
+            if linear_damping < 100.0 { body.set_linear_damping(linear_damping * 1.2 + 0.5); }
+            if angular_damping < 100.0 { body.set_angular_damping(angular_damping * 1.2 + 0.5); }
+        } else {
+            body.set_linear_damping((50.0 - ship.speed as f32) / 10.0);
+            body.set_angular_damping((50.0 - ship.speed as f32) / 10.0);
+        }
+    });
 }
 
 fn draw_player(core: &Core, world: &World, sprites: &Sprites) {
@@ -154,7 +306,24 @@ fn init_player(world: &World, sprites: &Sprites) {
         .set(Center { cx: (width / 2) as f32, cy: (height / 2) as f32 })
         .set(Rotation { angle: 0.0 })
         .set(Weapon { kind: WeaponKind::OneBullet })
-        .set(Ship { speed: 50, tracing: false, trace: Trace { key: "thin", tint: 0 }});
+        .set(Ship { speed: 50, tracing: false, trace: Trace { key: "thin", tint: 0 }})
+        .set(Handle { handle: RigidBodyHandle::invalid() });
+}
+
+fn init_physics(world: &World, mut space: &mut RigidBodySet, colliders: &mut ColliderSet) {
+    world.lookup("player").get::<(&Size, &mut Handle)>(|(size, handle)| {
+        let body = RigidBodyBuilder::new(RigidBodyType::Dynamic)
+            .translation(vector![DISPLAY_CENTER_X as f32, DISPLAY_CENTER_Y as f32])
+            .build();
+        handle.handle = space.insert(body);
+
+        let collider = ColliderBuilder::cuboid((size.width / 2) as f32, (size.height / 2) as f32)
+            .density(1.0)
+            .friction(0.1)
+            .build();
+
+        colliders.insert_with_parent(collider, handle.handle, &mut space);
+    });
 }
 
 fn bmp_sprite(sprites: &Sprites, key: &str) -> Rc<SubBitmap> {
