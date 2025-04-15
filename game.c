@@ -7,11 +7,11 @@
 
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_image.h>
-
 #include <box2d/box2d.h>
+#include <flecs.h>
 
 #include "types.h"
-#include "memory.c"
+#include "components.c"
 #include "queries.c"
 
 #define KEY_SEEN 1
@@ -30,6 +30,7 @@ int bullets_interval = 100;			// Interval between bullet shots in milliseconds.
 clock_t shot_time = 0;				// Last shot time.
 
 b2WorldId world_id;
+ecs_world_t* world;
 
 struct Sprites {
 	ALLEGRO_BITMAP* sheet;
@@ -82,8 +83,6 @@ struct Sprites {
 	ALLEGRO_BITMAP* bullet_a;
 	ALLEGRO_BITMAP* spark[3];
 } sprites;
-
-Entity *player;
 
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
@@ -229,18 +228,33 @@ void init_keyboard() {
 	memset(key, 0, sizeof(key));
 }
 
+ecs_entity_t* user_data(ecs_entity_t entity) {
+	ecs_entity_t *data = malloc(sizeof(ecs_entity_t));
+	*data = entity;
+
+	return data;
+}
+
+void free_user_data(b2BodyId body_id) {
+	ecs_entity_t *entity = b2Body_GetUserData(body_id);
+	free(entity);
+}
+
 void init_player() {
 	int width = al_get_bitmap_width(sprites.ship_a);
 	int height = al_get_bitmap_height(sprites.ship_a);
+
+	ecs_entity_t player = ecs_entity(world, { .name = "player" });
+
+	ecs_set(world, player, Sprite,		{ .image = sprites.ship_a });
+	ecs_set(world, player, Size,		{ .width = width, .height = height });
+	ecs_set(world, player, Position,	{ .x = display_center_x - width / 2, .y = display_center_y - height / 2 });
+	ecs_set(world, player, Center,		{ .cx = width / 2, .cy = height / 2 });
+	ecs_set(world, player, Rotation,	{ .angle = 0.0f });
+	ecs_set(world, player, Weapon,		{ .type = w_one_bullet });
+	ecs_set(world, player, Ship,		{ .speed = 50, .tracing = false, .trace = { .tint = 0 } });
 	
-	player = entity_new(e_player);
-	component_add(player, c_sprite, &(Sprite){ .image = sprites.ship_a });
-	component_add(player, c_size, &(Size){ .width = width, .height = height });
-	component_add(player, c_position, &(Position){ .x = display_center_x - width / 2, .y = display_center_y - height / 2 });
-	component_add(player, c_center, &(Center){ .cx = width / 2, .cy = height / 2 });
-	component_add(player, c_rotation, &(Rotation){ .angle = 0.0f });
-	component_add(player, c_weapon, &(Weapon){ .type = w_one_bullet });
-	Ship *ship = component_add(player, c_ship, &(Ship){ .speed = 50, .tracing = false, .trace = { .tint = 0 } });
+	Ship *ship = ecs_get_mut(world, player, Ship);
 	
 	for (int i = 0; i < 10; i++) {
 		ship->trace.image[i] = sprites.trace_thin[i];
@@ -250,26 +264,30 @@ void init_player() {
 }
 
 void init_physics() {
+	ecs_entity_t player = ecs_lookup(world, "player");
+	
 	b2WorldDef world_def = b2DefaultWorldDef();
 	world_def.gravity = (b2Vec2){ 0.0f, 0.0f };
 
 	world_id = b2CreateWorld(&world_def);
 
 	b2BodyDef body_def = b2DefaultBodyDef();
-	body_def.userData = player;
+	body_def.userData = user_data(player);
 	body_def.type = b2_dynamicBody;
 	body_def.position = (b2Vec2){ pixels_to_meters(display_center_x), pixels_to_meters(display_center_y) };
 
-	player->body_id = b2CreateBody(world_id, &body_def);
+	b2BodyId body_id = b2CreateBody(world_id, &body_def);
 
-	Size *size = component_get(player, c_size);
+	ecs_set(world, player, Physics, { .body_id = body_id });
+
+	const Size *size = ecs_get(world, player, Size);
 
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
 	shape_def.friction = 0.1f;
 
-	b2CreatePolygonShape(player->body_id, &shape_def, &dynamic_box);
+	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 }
 
 void destroy_physics() {
@@ -277,30 +295,32 @@ void destroy_physics() {
 	world_id = b2_nullWorldId;
 }
 
-void init_asteroid(Entity *asteroid) {
-	Position *pos = component_get(asteroid, c_position);
-	Size *size = component_get(asteroid, c_size);
+void init_asteroid(ecs_entity_t asteroid) {
+	const Position *pos = ecs_get(world, asteroid, Position);
+	const Size *size = ecs_get(world, asteroid, Size);
 
 	b2BodyDef body_def = b2DefaultBodyDef();
-	body_def.userData = asteroid;
+	body_def.userData = user_data(asteroid);
 	body_def.type = b2_dynamicBody;
 	body_def.position = (b2Vec2){ pixels_to_meters(pos->x + size->width / 2), pixels_to_meters(pos->y + size->height / 2) };
 
-	asteroid->body_id = b2CreateBody(world_id, &body_def);
+	b2BodyId body_id = b2CreateBody(world_id, &body_def);
+
+	ecs_set(world, asteroid, Physics, { .body_id = body_id });
 
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
 	shape_def.friction = 0.01f;
 
-	b2CreatePolygonShape(asteroid->body_id, &shape_def, &dynamic_box);
+	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 
 	b2MassData mass_data;
 	mass_data.mass = 100.0f;
 	mass_data.center = (b2Vec2){ 0.0f, 0.0f };
 	mass_data.rotationalInertia = 50.0f;
 
-	b2Body_SetMassData(asteroid->body_id, mass_data);
+	b2Body_SetMassData(body_id, mass_data);
 }
 
 void create_asteroids() {
@@ -318,21 +338,25 @@ void create_asteroids() {
 		int width = al_get_bitmap_width(image);
 		int height = al_get_bitmap_height(image);
 		
-		Entity *asteroid = entity_new(e_asteroid);
-		component_add(asteroid, c_position, &(Position){ .x = x, .y = y });
-		component_add(asteroid, c_size, &(Size){ .width = width, .height = height });
-		component_add(asteroid, c_center, &(Center){ .cx = width / 2, .cy = height / 2 });
-		component_add(asteroid, c_rotation, &(Rotation){ .angle = 0.0f });
-		component_add(asteroid, c_sprite, &(Sprite){ .image = image });
+		ecs_entity_t asteroid = ecs_new(world);
+
+		ecs_add_id(world, asteroid, Asteroid);
+		ecs_set(world, asteroid, Position,	{ .x = x, .y = y });
+		ecs_set(world, asteroid, Size,		{ .width = width, .height = height });
+		ecs_set(world, asteroid, Center,	{ .cx = width / 2, .cy = height / 2 });
+		ecs_set(world, asteroid, Rotation,	{ .angle = 0.0f });
+		ecs_set(world, asteroid, Sprite,	{ .image = image });
 
 		init_asteroid(asteroid);
 	}
 }
 
 void create_spark(int x, int y) {
-	Entity *spark = entity_new(e_spark);
-	component_add(spark, c_position, &(Position){ .x = x, .y = y });
-	component_add(spark, c_animation, &(Animation){ .frame = 0, .speed = 2, .count = 3, .images = &sprites.spark });
+	ecs_entity_t spark = ecs_new(world);
+
+	ecs_add_id(world, spark, Spark);
+	ecs_set(world, spark, Position,		{ .x = x, .y = y });
+	ecs_set(world, spark, Animation,	{ .frame = 0, .speed = 2, .count = 3, .images = &sprites.spark });
 }
 
 void process_keyboard(ALLEGRO_EVENT* event) {
@@ -351,19 +375,21 @@ void process_keyboard(ALLEGRO_EVENT* event) {
 	}
 }
 
-void init_bullet(Entity *bullet) {
-	Position *pos = component_get(bullet, c_position);
-	Size *size = component_get(bullet, c_size);
-	Rotation *rot = component_get(bullet, c_rotation);
+void init_bullet(ecs_entity_t bullet) {
+	const Position *pos = ecs_get(world, bullet, Position);
+	const Size *size = ecs_get(world, bullet, Size);
+	const Rotation *rot = ecs_get(world, bullet, Rotation);
 	
 	b2BodyDef body_def = b2DefaultBodyDef();
-	body_def.userData = bullet;
+	body_def.userData = user_data(bullet);
 	body_def.type = b2_dynamicBody;
 	body_def.position = (b2Vec2){ pixels_to_meters(pos->x + size->width / 2), pixels_to_meters(pos->y + size->height / 2) };
 	body_def.rotation = b2MakeRot(rot->angle);
 	body_def.isBullet = true;
 
-	bullet->body_id = b2CreateBody(world_id, &body_def);
+	b2BodyId body_id = b2CreateBody(world_id, &body_def);
+
+	ecs_set(world, bullet, Physics, { .body_id = body_id });
 
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
@@ -371,9 +397,9 @@ void init_bullet(Entity *bullet) {
 	shape_def.friction = 0.01f;
 	shape_def.filter.groupIndex = -1;
 
-	b2CreatePolygonShape(bullet->body_id, &shape_def, &dynamic_box);
+	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 	
-	b2Body_ApplyLinearImpulseToCenter(bullet->body_id, b2RotateVector(b2MakeRot(degrees_to_radians(-90)), angle_to_vector(rot->angle, 20.0)), true);
+	b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2MakeRot(degrees_to_radians(-90)), angle_to_vector(rot->angle, 20.0)), true);
 }
 
 bool bullet_shot_allowed() {
@@ -386,12 +412,14 @@ bool bullet_shot_allowed() {
 void player_shot() {
 	int bullet_width = al_get_bitmap_width(sprites.bullet_a);
 	int bullet_height = al_get_bitmap_height(sprites.bullet_a);
+
+	ecs_entity_t player = ecs_lookup(world, "player");
 	
-	Position *position = component_get(player, c_position);
-	Center *center = component_get(player, c_center);
-	Rotation *rot = component_get(player, c_rotation);
-	Size *size = component_get(player, c_size);
-	Weapon *weapon = component_get(player, c_weapon);
+	const Position *position = ecs_get(world, player, Position);
+	const Center *center = ecs_get(world, player, Center);
+	const Rotation *rot = ecs_get(world, player, Rotation);
+	const Size *size = ecs_get(world, player, Size);
+	const Weapon *weapon = ecs_get(world, player, Weapon);
 	
 	if (weapon->type == w_one_bullet) {
 		if (!bullet_shot_allowed()) return;
@@ -403,12 +431,14 @@ void player_shot() {
 
 		rotate_point_in(&pos, position->x + center->cx, position->y + center->cy, rot->angle);
 
-		Entity *bullet = entity_new(e_bullet);
-		component_add(bullet, c_position, &(Position){ .x = pos.x, .y = pos.y });
-		component_add(bullet, c_size, &(Size){ .width = bullet_width, .height = bullet_height });
-		component_add(bullet, c_center, &(Center){ .cx = bullet_width / 2, .cy = bullet_height / 2 });
-		component_add(bullet, c_rotation, &(Rotation){ .angle = rot->angle });
-		component_add(bullet, c_sprite, &(Sprite){ .image = sprites.bullet_a });
+		ecs_entity_t bullet = ecs_new(world);
+
+		ecs_add_id(world, bullet, Bullet);
+		ecs_set(world, bullet, Position,	{ .x = pos.x, .y = pos.y });
+		ecs_set(world, bullet, Size,		{ .width = bullet_width, .height = bullet_height });
+		ecs_set(world, bullet, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet, Rotation,	{ .angle = rot->angle });
+		ecs_set(world, bullet, Sprite,		{ .image = sprites.bullet_a });
 
 		init_bullet(bullet);
 		
@@ -431,19 +461,23 @@ void player_shot() {
 		rotate_point_in(&pos1, position->x + center->cx, position->y + center->cy, rot->angle);
 		rotate_point_in(&pos2, position->x + center->cx, position->y + center->cy, rot->angle);
 		
-		Entity *bullet1 = entity_new(e_bullet);
-		component_add(bullet1, c_position, &(Position){ .x = pos1.x, .y = pos1.y });
-		component_add(bullet1, c_size, &(Size){ .width = bullet_width, .height = bullet_height });
-		component_add(bullet1, c_center, &(Center){ .cx = bullet_width / 2, .cy = bullet_height / 2 });
-		component_add(bullet1, c_rotation, &(Rotation){ .angle = rot->angle });
-		component_add(bullet1, c_sprite, &(Sprite){ .image = sprites.bullet_a });
+		ecs_entity_t bullet1 = ecs_new(world);
+
+		ecs_add_id(world, bullet1, Bullet);
+		ecs_set(world, bullet1, Position,	{ .x = pos1.x, .y = pos1.y });
+		ecs_set(world, bullet1, Size,		{ .width = bullet_width, .height = bullet_height });
+		ecs_set(world, bullet1, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet1, Rotation,	{ .angle = rot->angle });
+		ecs_set(world, bullet1, Sprite,		{ .image = sprites.bullet_a });
 		
-		Entity *bullet2 = entity_new(e_bullet);
-		component_add(bullet2, c_position, &(Position){ .x = pos2.x, .y = pos2.y });
-		component_add(bullet2, c_size, &(Size){ .width = bullet_width, .height = bullet_height });
-		component_add(bullet2, c_center, &(Center){ .cx = bullet_width / 2, .cy = bullet_height / 2 });
-		component_add(bullet2, c_rotation, &(Rotation){ .angle = rot->angle });
-		component_add(bullet2, c_sprite, &(Sprite){ .image = sprites.bullet_a });
+		ecs_entity_t bullet2 = ecs_new(world);
+
+		ecs_add_id(world, bullet2, Bullet);
+		ecs_set(world, bullet2, Position,	{ .x = pos2.x, .y = pos2.y });
+		ecs_set(world, bullet2, Size,		{ .width = bullet_width, .height = bullet_height });
+		ecs_set(world, bullet2, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet2, Rotation,	{ .angle = rot->angle });
+		ecs_set(world, bullet2, Sprite,		{ .image = sprites.bullet_a });
 
 		init_bullet(bullet1);
 		init_bullet(bullet2);
@@ -453,22 +487,25 @@ void player_shot() {
 }
 
 void process_player() {
-	// Defined experimentally based on ship_a (it's movement) for which it equals 30.
-	float impulse = 3.90625 * b2Body_GetMass(player->body_id);
-	float angular_impulse = 0.6510417 * b2Body_GetMass(player->body_id);
+	ecs_entity_t player = ecs_lookup(world, "player");
 
-	Weapon *weapon = component_get(player, c_weapon);
-	Ship *ship = component_get(player, c_ship);
+	b2BodyId body_id = ecs_get(world, player, Physics)->body_id;
+	// Defined experimentally based on ship_a (it's movement) for which it equals 30.
+	float impulse = 3.90625 * b2Body_GetMass(body_id);
+	float angular_impulse = 0.6510417 * b2Body_GetMass(body_id);
+
+	Weapon *weapon = ecs_get_mut(world, player, Weapon);
+	Ship *ship = ecs_get_mut(world, player, Ship);
 	
 	if (key[ALLEGRO_KEY_1]) weapon->type = w_one_bullet;
 	else if (key[ALLEGRO_KEY_2]) weapon->type = w_two_bullets;
 	
-	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(player->body_id, b2RotateVector(b2Body_GetRotation(player->body_id), (b2Vec2){ -impulse, 0.0f }), true);
-	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(player->body_id, b2RotateVector(b2Body_GetRotation(player->body_id), (b2Vec2){ impulse, 0.0f }), true);
-	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(player->body_id, b2RotateVector(b2Body_GetRotation(player->body_id), (b2Vec2){ 0.0f, -impulse }), true);
-	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(player->body_id, b2RotateVector(b2Body_GetRotation(player->body_id), (b2Vec2){ 0.0f, impulse }), true);
-	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(player->body_id, angular_impulse, true);
-	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(player->body_id, -angular_impulse, true);
+	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ -impulse, 0.0f }), true);
+	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ impulse, 0.0f }), true);
+	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, -impulse }), true);
+	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, impulse }), true);
+	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(body_id, angular_impulse, true);
+	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(body_id, -angular_impulse, true);
 
 	if (key[ALLEGRO_KEY_Q]) {
 		if (ship->speed > 0) ship->speed--;
@@ -479,14 +516,14 @@ void process_player() {
 
 	// Emergency braking.
 	if (key[ALLEGRO_KEY_SPACE]) {
-		float linear_damping = b2Body_GetLinearDamping(player->body_id);
-		float angular_damping = b2Body_GetAngularDamping(player->body_id);
+		float linear_damping = b2Body_GetLinearDamping(body_id);
+		float angular_damping = b2Body_GetAngularDamping(body_id);
 		
-		if (linear_damping < 100) b2Body_SetLinearDamping(player->body_id, linear_damping * 1.2f + 0.5f);
-		if (angular_damping < 100) b2Body_SetAngularDamping(player->body_id, angular_damping * 1.2f + 0.5f);
+		if (linear_damping < 100) b2Body_SetLinearDamping(body_id, linear_damping * 1.2f + 0.5f);
+		if (angular_damping < 100) b2Body_SetAngularDamping(body_id, angular_damping * 1.2f + 0.5f);
 	} else {
-		b2Body_SetLinearDamping(player->body_id, (50 - ship->speed) / 10.0f );
-		b2Body_SetAngularDamping(player->body_id, (50 - ship->speed) / 10.0f);
+		b2Body_SetLinearDamping(body_id, (50 - ship->speed) / 10.0f );
+		b2Body_SetAngularDamping(body_id, (50 - ship->speed) / 10.0f);
 	}
 
 	if (key[ALLEGRO_KEY_W]) player_shot();
@@ -495,87 +532,104 @@ void process_player() {
 }
 
 void clean_entities() {
-	Iterator b_iter = query_iter(e_bullet, 1, op_and, &(Query*[]){
-		&(Query){ .param = &(Rectangle){ .x = 0, .y = 0, .width = display_width, .height = display_height }, .query = &query_is_outside_of_rect } });
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Bullet), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsIn },
+			{ .id = ecs_id(Size), .inout = EcsIn },
+			{ .id = ecs_id(Physics), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
 
-	int counter = 0;
-	Entity* bullets[max_bullets];
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-	while (iter_next(&b_iter)) {
-		bullets[counter] = b_iter.entity;
-		counter++;
+	while (ecs_query_next(&iter)) {
+		const Position *pos = ecs_field(&iter, Position, 1);
+		const Size *size = ecs_field(&iter, Size, 2);
+		const Physics *physics = ecs_field(&iter, Physics, 3);
+
+		for (int i = 0; i < iter.count; i++) {
+			if (query_is_outside_of_rect(&pos[i], &size[i], &(Rectangle){ .x = 0, .y = 0, .width = display_width, .height = display_height })) {
+				free_user_data(physics[i].body_id);
+				b2DestroyBody(physics[i].body_id);
+				ecs_delete(world, iter.entities[i]);
+			}
+		}
 	}
 
-	for (int i = 0; i < counter; i++) {
-		b2DestroyBody(bullets[i]->body_id);
-		entity_delete(bullets[i]);
-	}
+	ecs_query_fini(q);
 }
 
 void process_physics() {
 	b2World_Step(world_id, time_step, sub_step_count);
 	
-	b2Vec2 position = b2Body_GetPosition(player->body_id);
-	b2Rot rotation = b2Body_GetRotation(player->body_id);
-
-	Position *pos = component_get(player, c_position);
-	Rotation *rot = component_get(player, c_rotation);
-	Center *center = component_get(player, c_center);
+	ecs_entity_t player = ecs_lookup(world, "player");
 	
+	Position *pos = ecs_get_mut(world, player, Position);
+	Rotation *rot = ecs_get_mut(world, player, Rotation);
+	const Center *center = ecs_get(world, player, Center);
+	const Physics *physics = ecs_get(world, player, Physics);
+
+	b2Vec2 position = b2Body_GetPosition(physics->body_id);
+	b2Rot rotation = b2Body_GetRotation(physics->body_id);
+
 	pos->x = meters_to_pixels(position.x) - center->cx;
 	pos->y = meters_to_pixels(position.y) - center->cy;
 	rot->angle = b2Rot_GetAngle(rotation);
 
-	Iterator b_iter = entities_iter(e_bullet);
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Bullet), .inout = EcsInOutNone, .oper = EcsOr },
+			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsOut },
+			{ .id = ecs_id(Rotation), .inout = EcsOut },
+			{ .id = ecs_id(Center), .inout = EcsIn },
+			{ .id = ecs_id(Physics), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
 
-	while (iter_next(&b_iter)) {
-		Entity *bullet = b_iter.entity;
-		
-		b2Vec2 position = b2Body_GetPosition(bullet->body_id);
-		b2Rot rotation = b2Body_GetRotation(bullet->body_id);
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-		Position *pos = component_get(bullet, c_position);
-		Rotation *rot = component_get(bullet, c_rotation);
-		Center *center = component_get(bullet, c_center);
+	while (ecs_query_next(&iter)) {
+		Position *pos = ecs_field(&iter, Position, 1);
+		Rotation *rot = ecs_field(&iter, Rotation, 2);
+		const Center *center = ecs_field(&iter, Center, 3);
+		const Physics *physics = ecs_field(&iter, Physics, 4);
 
-		pos->x = meters_to_pixels(position.x) - center->cx;
-		pos->y = meters_to_pixels(position.y) - center->cy;
-		rot->angle = b2Rot_GetAngle(rotation);
+		for (int i = 0; i < iter.count; i++) {
+			b2Vec2 position = b2Body_GetPosition(physics[i].body_id);
+			b2Rot rotation = b2Body_GetRotation(physics[i].body_id);
+
+			pos[i].x = meters_to_pixels(position.x) - center[i].cx;
+			pos[i].y = meters_to_pixels(position.y) - center[i].cy;
+			rot[i].angle = b2Rot_GetAngle(rotation);
+		}
 	}
 
-	Iterator a_iter = entities_iter(e_asteroid);
-
-	while (iter_next(&a_iter)) {
-		Entity *asteroid = a_iter.entity;
-		
-		b2Vec2 position = b2Body_GetPosition(asteroid->body_id);
-		b2Rot rotation = b2Body_GetRotation(asteroid->body_id);
-
-		Position *pos = component_get(asteroid, c_position);
-		Rotation *rot = component_get(asteroid, c_rotation);
-		Center *center = component_get(asteroid, c_center);
-
-		pos->x = meters_to_pixels(position.x) - center->cx;
-		pos->y = meters_to_pixels(position.y) - center->cy;
-		rot->angle = b2Rot_GetAngle(rotation);
-	}
+	ecs_query_fini(q);
 }
 
-bool check_bullet_asteroid_collision(Entity *entity_a, Entity *entity_b) {
-	Entity *bullet = NULL;
+bool check_bullet_asteroid_collision(ecs_entity_t *entity_a, ecs_entity_t *entity_b) {
+	ecs_entity_t bullet = 0;
 
-	if (entity_a->type == e_bullet && entity_b->type & e_asteroid) bullet = entity_a;
-	else if (entity_b->type == e_bullet && entity_a->type & e_asteroid) bullet = entity_b;
+	if (ecs_is_valid(world, *entity_a) && ecs_is_valid(world, *entity_b)) {
+		if (ecs_has_id(world, *entity_a, Bullet) && ecs_has_id(world, *entity_b, Asteroid)) bullet = *entity_a;
+		else if (ecs_has_id(world, *entity_b, Bullet) && ecs_has_id(world, *entity_a, Asteroid)) bullet = *entity_b;
+	}
 
-	if (bullet == NULL) return false;
+	if (bullet == 0) return false;
 
-	Position *pos = component_get(bullet, c_position);
-	Center *center = component_get(bullet, c_center);
+	const Position *pos = ecs_get(world, bullet, Position);
+	const Center *center = ecs_get(world, bullet, Center);
+	const Physics *physics = ecs_get(world, bullet, Physics);
 
 	create_spark(pos->x + center->cx, pos->y + center->cy);
 
-	b2DestroyBody(bullet->body_id);
-	entity_delete(bullet);
+	free_user_data(physics->body_id);
+	b2DestroyBody(physics->body_id);
+	ecs_delete(world, bullet);
 
 	return true;
 }
@@ -588,39 +642,46 @@ void process_collisions() {
 		b2BodyId body_id_a = b2Shape_GetBody(event->shapeIdA);
 		b2BodyId body_id_b = b2Shape_GetBody(event->shapeIdB);
 
-		Entity *entity_a = b2Body_GetUserData(body_id_a);
-		Entity *entity_b = b2Body_GetUserData(body_id_b);
+		ecs_entity_t *entity_a = b2Body_GetUserData(body_id_a);
+		ecs_entity_t *entity_b = b2Body_GetUserData(body_id_b);
 
 		check_bullet_asteroid_collision(entity_a, entity_b);
 	}
 }
 
 void process_animations() {
-	int counter = 0;
-	Entity* sparks[max_sparks];
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Spark), .inout = EcsInOutNone },
+			{ .id = ecs_id(Animation), .inout = EcsOut }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
+	
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-	Iterator a_iter = components_iter(c_animation, e_any);
+	while (ecs_query_next(&iter)) {
+		Animation *a = ecs_field(&iter, Animation, 1);
 
-	while (iter_next(&a_iter)) {
-		Animation *a = a_iter.component;
+		for (int i = 0; i < iter.count; i++) {
+			a[i].frame++;
 
-		a->frame++;
-		
-		if (a->frame == a->count * a->speed) {
-			sparks[counter] = a->entity;
-			counter++;
+			if (a[i].frame == a[i].count * a[i].speed)
+				ecs_delete(world, iter.entities[i]);
 		}
 	}
 
-	for (int i = 0; i < counter; i++) entity_delete(sparks[i]);
+	ecs_query_fini(q);
 }
 
 void draw_player() {
-	Rotation *rot = component_get(player, c_rotation);
-	Sprite *sprite = component_get(player, c_sprite);
-	Position *pos = component_get(player, c_position);
-	Center *center = component_get(player, c_center);
-	Ship *ship = component_get(player, c_ship);
+	ecs_entity_t player = ecs_lookup(world, "player");
+	
+	const Rotation *rot = ecs_get(world, player, Rotation);
+	const Sprite *sprite = ecs_get(world, player, Sprite);
+	const Position *pos = ecs_get(world, player, Position);
+	const Center *center = ecs_get(world, player, Center);
+	Ship *ship = ecs_get_mut(world, player, Ship);
 	
 	if (rot->angle == 0.0f) al_draw_bitmap(sprite->image, pos->x, pos->y, 0);
 	else al_draw_rotated_bitmap(sprite->image, center->cx, center->cy, pos->x + center->cx, pos->y + center->cy, rot->angle, 0);
@@ -643,49 +704,86 @@ void draw_player() {
 }
 
 void draw_bullets() {
-	Iterator b_iter = entities_iter(e_bullet);
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Bullet), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsIn },
+			{ .id = ecs_id(Rotation), .inout = EcsIn },
+			{ .id = ecs_id(Center), .inout = EcsIn },
+			{ .id = ecs_id(Sprite), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
 
-	while (iter_next(&b_iter)) {
-		Entity *bullet = b_iter.entity;
-		
-		Position *pos = component_get(bullet, c_position);
-		Rotation *rot = component_get(bullet, c_rotation);
-		Center *center = component_get(bullet, c_center);
-		Sprite *sprite = component_get(bullet, c_sprite);
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-		if (rot->angle == 0.0f) al_draw_bitmap(sprite->image, pos->x, pos->y, 0);
-		else al_draw_rotated_bitmap(sprite->image, center->cx, center->cy, pos->x + center->cx, pos->y + center->cy, rot->angle, 0);
+	while (ecs_query_next(&iter)) {
+		const Position *pos = ecs_field(&iter, Position, 1);
+		const Rotation *rot = ecs_field(&iter, Rotation, 2);
+		const Center *center = ecs_field(&iter, Center, 3);
+		const Sprite *sprite = ecs_field(&iter, Sprite, 4);
+
+		for (int i = 0; i < iter.count; i++) {
+			if (rot[i].angle == 0.0f) al_draw_bitmap(sprite[i].image, pos[i].x, pos[i].y, 0);
+			else al_draw_rotated_bitmap(sprite[i].image, center[i].cx, center[i].cy, pos[i].x + center[i].cx, pos[i].y + center[i].cy, rot[i].angle, 0);
+		}
 	}
+
+	ecs_query_fini(q);
 }
 
 void draw_asteroids() {
-	Iterator a_iter = entities_iter(e_asteroid);
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsIn },
+			{ .id = ecs_id(Rotation), .inout = EcsIn },
+			{ .id = ecs_id(Center), .inout = EcsIn },
+			{ .id = ecs_id(Sprite), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
 
-	while (iter_next(&a_iter)) {
-		Entity *asteroid = a_iter.entity;
-		
-		Position *pos = component_get(asteroid, c_position);
-		Rotation *rot = component_get(asteroid, c_rotation);
-		Center *center = component_get(asteroid, c_center);
-		Sprite *sprite = component_get(asteroid, c_sprite);
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-		if (rot->angle == 0.0f) al_draw_bitmap(sprite->image, pos->x, pos->y, 0);
-		else al_draw_rotated_bitmap(sprite->image, center->cx, center->cy, pos->x + center->cx, pos->y + center->cy, rot->angle, 0);
+	while (ecs_query_next(&iter)) {
+		const Position *pos = ecs_field(&iter, Position, 1);
+		const Rotation *rot = ecs_field(&iter, Rotation, 2);
+		const Center *center = ecs_field(&iter, Center, 3);
+		const Sprite *sprite = ecs_field(&iter, Sprite, 4);
+
+		for (int i = 0; i < iter.count; i++) {
+			if (rot[i].angle == 0.0f) al_draw_bitmap(sprite[i].image, pos[i].x, pos[i].y, 0);
+			else al_draw_rotated_bitmap(sprite[i].image, center[i].cx, center[i].cy, pos[i].x + center[i].cx, pos[i].y + center[i].cy, rot[i].angle, 0);
+		}
 	}
+
+	ecs_query_fini(q);
 }
 
 void draw_sparks() {
-	Iterator s_iter = entities_iter(e_spark);
+	ecs_query_t *q = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Spark), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsIn },
+			{ .id = ecs_id(Animation), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
 
-	while (iter_next(&s_iter)) {
-		Entity *spark = s_iter.entity;
+	ecs_iter_t iter = ecs_query_iter(world, q);
 
-		Position *pos = component_get(spark, c_position);
-		Animation *a = component_get(spark, c_animation);
-		ALLEGRO_BITMAP *image = (*a->images)[a->frame / a->speed];
+	while (ecs_query_next(&iter)) {
+		const Position *pos = ecs_field(&iter, Position, 1);
+		const Animation *a = ecs_field(&iter, Animation, 2);
 
-		al_draw_bitmap(image, pos->x - al_get_bitmap_width(image) / 2.0, pos->y - al_get_bitmap_height(image) / 2.0, 0);
+		for (int i = 0; i < iter.count; i++) {
+			ALLEGRO_BITMAP *image = (*a[i].images)[a[i].frame / a[i].speed];
+			al_draw_bitmap(image, pos[i].x - al_get_bitmap_width(image) / 2.0, pos[i].y - al_get_bitmap_height(image) / 2.0, 0);
+		}
 	}
+
+	ecs_query_fini(q);
 }
 
 int main() {
@@ -693,7 +791,9 @@ int main() {
 	bool redraw = true;
 	ALLEGRO_EVENT event;
 
-	memory_init();
+	world = ecs_init();
+	
+	register_components(world);
 	
 	init(al_init(), "allegro");
 	init(al_install_keyboard(), "keyboard");
@@ -753,9 +853,8 @@ int main() {
 	al_destroy_event_queue(queue);
 	destroy_sprites();
 	destroy_physics();
+	ecs_fini(world);
 
-	memory_dispose();
-	
 	return EXIT_SUCCESS;
 }
 
