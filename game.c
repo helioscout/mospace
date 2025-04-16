@@ -578,10 +578,9 @@ void process_physics() {
 	pos->y = meters_to_pixels(position.y) - center->cy;
 	rot->angle = b2Rot_GetAngle(rotation);
 
-	ecs_query_t *q = ecs_query(world, {
+	ecs_query_t *q_b = ecs_query(world, {
 		.terms = {
-			{ .id = ecs_id(Bullet), .inout = EcsInOutNone, .oper = EcsOr },
-			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone },
+			{ .id = ecs_id(Bullet), .inout = EcsInOutNone },
 			{ .id = ecs_id(Position), .inout = EcsOut },
 			{ .id = ecs_id(Rotation), .inout = EcsOut },
 			{ .id = ecs_id(Center), .inout = EcsIn },
@@ -590,15 +589,15 @@ void process_physics() {
 		.cache_kind = EcsQueryCacheAuto
 	});
 
-	ecs_iter_t iter = ecs_query_iter(world, q);
+	ecs_iter_t iter_b = ecs_query_iter(world, q_b);
 
-	while (ecs_query_next(&iter)) {
-		Position *pos = ecs_field(&iter, Position, 1);
-		Rotation *rot = ecs_field(&iter, Rotation, 2);
-		const Center *center = ecs_field(&iter, Center, 3);
-		const Physics *physics = ecs_field(&iter, Physics, 4);
+	while (ecs_query_next(&iter_b)) {
+		Position *pos = ecs_field(&iter_b, Position, 1);
+		Rotation *rot = ecs_field(&iter_b, Rotation, 2);
+		const Center *center = ecs_field(&iter_b, Center, 3);
+		const Physics *physics = ecs_field(&iter_b, Physics, 4);
 
-		for (int i = 0; i < iter.count; i++) {
+		for (int i = 0; i < iter_b.count; i++) {
 			b2Vec2 position = b2Body_GetPosition(physics[i].body_id);
 			b2Rot rotation = b2Body_GetRotation(physics[i].body_id);
 
@@ -608,7 +607,38 @@ void process_physics() {
 		}
 	}
 
-	ecs_query_fini(q);
+	ecs_query_fini(q_b);
+
+	ecs_query_t *q_a = ecs_query(world, {
+		.terms = {
+			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone },
+			{ .id = ecs_id(Position), .inout = EcsOut },
+			{ .id = ecs_id(Rotation), .inout = EcsOut },
+			{ .id = ecs_id(Center), .inout = EcsIn },
+			{ .id = ecs_id(Physics), .inout = EcsIn }
+		},
+		.cache_kind = EcsQueryCacheAuto
+	});
+
+	ecs_iter_t iter_a = ecs_query_iter(world, q_a);
+
+	while (ecs_query_next(&iter_a)) {
+		Position *pos = ecs_field(&iter_a, Position, 1);
+		Rotation *rot = ecs_field(&iter_a, Rotation, 2);
+		const Center *center = ecs_field(&iter_a, Center, 3);
+		const Physics *physics = ecs_field(&iter_a, Physics, 4);
+
+		for (int i = 0; i < iter_a.count; i++) {
+			b2Vec2 position = b2Body_GetPosition(physics[i].body_id);
+			b2Rot rotation = b2Body_GetRotation(physics[i].body_id);
+
+			pos[i].x = meters_to_pixels(position.x) - center[i].cx;
+			pos[i].y = meters_to_pixels(position.y) - center[i].cy;
+			rot[i].angle = b2Rot_GetAngle(rotation);
+		}
+	}
+
+	ecs_query_fini(q_a);
 }
 
 bool check_bullet_asteroid_collision(ecs_entity_t *entity_a, ecs_entity_t *entity_b) {
