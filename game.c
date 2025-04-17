@@ -13,6 +13,7 @@
 #include "types.h"
 #include "components.c"
 #include "queries.c"
+#include "sprites.c"
 
 #define KEY_SEEN 1
 #define KEY_RELEASED 2
@@ -32,58 +33,6 @@ clock_t shot_time = 0;				// Last shot time.
 b2WorldId world_id;
 ecs_world_t* world;
 
-struct Sprites {
-	ALLEGRO_BITMAP* sheet;
-	ALLEGRO_BITMAP* sheet_px;
-	ALLEGRO_BITMAP* effect_purple;
-	ALLEGRO_BITMAP* effect_yellow;
-	ALLEGRO_BITMAP* enemy_a;
-	ALLEGRO_BITMAP* enemy_b;
-	ALLEGRO_BITMAP* enemy_c;
-	ALLEGRO_BITMAP* enemy_d;
-	ALLEGRO_BITMAP* enemy_e;
-	ALLEGRO_BITMAP* meteor_detailed_large;
-	ALLEGRO_BITMAP* meteor_detailed_small;
-	ALLEGRO_BITMAP* meteor_large;
-	ALLEGRO_BITMAP* meteor_small;
-	ALLEGRO_BITMAP* meteor_square_detailed_large;
-	ALLEGRO_BITMAP* meteor_square_detailed_small;
-	ALLEGRO_BITMAP* meteor_square_large;
-	ALLEGRO_BITMAP* meteor_square_small;
-	ALLEGRO_BITMAP* satellite_a;
-	ALLEGRO_BITMAP* satellite_b;
-	ALLEGRO_BITMAP* satellite_c;
-	ALLEGRO_BITMAP* satellite_d;
-	ALLEGRO_BITMAP* ship_a;
-	ALLEGRO_BITMAP* ship_b;
-	ALLEGRO_BITMAP* ship_c;
-	ALLEGRO_BITMAP* ship_d;
-	ALLEGRO_BITMAP* ship_e;
-	ALLEGRO_BITMAP* ship_f;
-	ALLEGRO_BITMAP* ship_g;
-	ALLEGRO_BITMAP* ship_h;
-	ALLEGRO_BITMAP* ship_i;
-	ALLEGRO_BITMAP* ship_j;
-	ALLEGRO_BITMAP* ship_k;
-	ALLEGRO_BITMAP* ship_l;
-	ALLEGRO_BITMAP* ship_sides_a;
-	ALLEGRO_BITMAP* ship_sides_b;
-	ALLEGRO_BITMAP* ship_sides_c;
-	ALLEGRO_BITMAP* ship_sides_d;
-	ALLEGRO_BITMAP* star_large;
-	ALLEGRO_BITMAP* star_medium;
-	ALLEGRO_BITMAP* star_small;
-	ALLEGRO_BITMAP* star_tiny;
-	ALLEGRO_BITMAP* station_a;
-	ALLEGRO_BITMAP* station_b;
-	ALLEGRO_BITMAP* station_c;
-	ALLEGRO_BITMAP* trace_thin[10];
-	ALLEGRO_BITMAP* trace_medium[10];
-	ALLEGRO_BITMAP* trace_thick[10];
-	ALLEGRO_BITMAP* bullet_a;
-	ALLEGRO_BITMAP* spark[3];
-} sprites;
-
 void log_msg(const char* message, const char* description);
 void init(bool value, const char* description);
 void* create(void* value, const char* description);
@@ -95,134 +44,6 @@ Point rotate_point(int x, int y, int cx, int cy, float angle);
 void rotate_point_in(Point *point, int cx, int cy, float angle);
 b2Vec2 angle_to_vector(float angle, float scale);
 float degrees_to_radians(int degrees);
-
-void init_sprites() {
-	sprites.sheet = create(al_load_bitmap("assets/spritesheet.png"), "spritesheet");
-	sprites.sheet_px = create(al_load_bitmap("assets/spritesheet-px.png"), "spritesheet-px");
-
-	sprites.effect_purple = grab_sprite(156, 32, 32, 64);
-	sprites.effect_yellow = grab_sprite(180, 181, 32, 64);
-	sprites.enemy_a = grab_sprite(0, 420, 48, 48);
-	sprites.enemy_b = grab_sprite(100, 140, 48, 48);
-	sprites.enemy_c = grab_sprite(0, 0, 64, 32);
-	sprites.enemy_d = grab_sprite(100, 188, 48, 48);
-	sprites.enemy_e = grab_sprite(100, 332, 48, 48);
-	sprites.meteor_detailed_large = grab_sprite(144, 428, 48, 48);
-	sprites.meteor_detailed_small = grab_sprite(144, 476, 32, 32);
-	sprites.meteor_large = grab_sprite(144, 380, 48, 48);
-	sprites.meteor_small = grab_sprite(112, 0, 32, 32);
-	sprites.meteor_square_detailed_large = grab_sprite(108, 32, 48, 48);
-	sprites.meteor_square_detailed_small = grab_sprite(152, 96, 32, 32);
-	sprites.meteor_square_large = grab_sprite(52, 340, 48, 48);
-	sprites.meteor_square_small = grab_sprite(144, 0, 32, 32);
-	sprites.satellite_a = grab_sprite(0, 148, 52, 44);
-	sprites.satellite_b = grab_sprite(0, 192, 52, 52);
-	sprites.satellite_c = grab_sprite(0, 332, 52, 36);
-	sprites.satellite_d = grab_sprite(0, 296, 52, 36);
-	sprites.ship_a = grab_sprite(52, 388, 32, 24);
-	sprites.ship_b = grab_sprite(148, 341, 16, 32);
-	sprites.ship_c = grab_sprite(48, 468, 48, 32);
-	sprites.ship_d = grab_sprite(64, 0, 48, 32);
-	sprites.ship_e = grab_sprite(96, 436, 48, 48);
-	sprites.ship_f = grab_sprite(96, 388, 48, 48);
-	sprites.ship_g = grab_sprite(60, 32, 48, 48);
-	sprites.ship_h = grab_sprite(56, 92, 48, 48);
-	sprites.ship_i = grab_sprite(148, 261, 32, 48);
-	sprites.ship_j = grab_sprite(52, 292, 48, 48);
-	sprites.ship_k = grab_sprite(148, 181, 32, 48);
-	sprites.ship_l = grab_sprite(52, 244, 48, 48);
-	sprites.ship_sides_a = grab_sprite(148, 128, 42, 53);
-	sprites.ship_sides_b = grab_sprite(0, 244, 52, 52);
-	sprites.ship_sides_c = grab_sprite(0, 368, 52, 52);
-	sprites.ship_sides_d = grab_sprite(0, 468, 48, 32);
-	sprites.star_large = grab_sprite(52, 196, 48, 48);
-	sprites.star_medium = grab_sprite(52, 148, 48, 48);
-	sprites.star_small = grab_sprite(96, 484, 16, 16);
-	sprites.star_tiny = grab_sprite(112, 484, 16, 16);
-	sprites.station_a = grab_sprite(48, 420, 48, 48);
-	sprites.station_b = grab_sprite(0, 92, 56, 56);
-	sprites.station_c = grab_sprite(0, 32, 60, 60);
-	sprites.bullet_a = grab_sprite_px(13, 0, 2, 9);
-
-	ALLEGRO_BITMAP* thin_sprite = sprites.trace_thin[9] = create(al_load_bitmap("assets/trace-thin.png"), "trace thin sprite");
-	ALLEGRO_BITMAP* medium_sprite = sprites.trace_medium[9] = create(al_load_bitmap("assets/trace-medium.png"), "trace medium sprite");
-	ALLEGRO_BITMAP* thick_sprite = sprites.trace_thick[9] = create(al_load_bitmap("assets/trace-thick.png"), "trace thick sprite");
-
-	int thin_width = al_get_bitmap_width(thin_sprite);
-	int thin_height = al_get_bitmap_height(thin_sprite);
-	int medium_width = al_get_bitmap_width(medium_sprite);
-	int medium_height = al_get_bitmap_height(medium_sprite);
-	int thick_width = al_get_bitmap_width(thick_sprite);
-	int thick_height = al_get_bitmap_height(thick_sprite);
-
-	for (int i = 0; i < 9; i++) {
-		int dh = 45 - i * 5;
-		
-		sprites.trace_thin[i] = create(al_create_sub_bitmap(thin_sprite, 0, dh, thin_width, thin_height - dh), "trace thin subimage");
-		sprites.trace_medium[i] = create(al_create_sub_bitmap(medium_sprite, 0, dh, medium_width, medium_height - dh), "trace medium subimage");
-		sprites.trace_thick[i] = create(al_create_sub_bitmap(thick_sprite, 0, dh, thick_width, thick_height - dh), "trace thick subimage");
-	}
-
-	sprites.spark[0] = grab_sprite_px(34, 0, 10, 8);
-	sprites.spark[1] = grab_sprite_px(45, 0, 7, 8);
-	sprites.spark[2] = grab_sprite_px(54, 0, 9, 8);
-}
-
-void destroy_sprites() {
-	for (int i = 0; i < 3; i++) al_destroy_bitmap(sprites.spark[i]);
-	
-	for (int i = 0; i < 10; i++) {
-		al_destroy_bitmap(sprites.trace_thick[i]);
-		al_destroy_bitmap(sprites.trace_medium[i]);
-		al_destroy_bitmap(sprites.trace_thin[i]);
-	}
-		
-	al_destroy_bitmap(sprites.bullet_a);
-	al_destroy_bitmap(sprites.station_c);
-	al_destroy_bitmap(sprites.station_b);
-	al_destroy_bitmap(sprites.station_a);
-	al_destroy_bitmap(sprites.star_tiny);
-	al_destroy_bitmap(sprites.star_small);
-	al_destroy_bitmap(sprites.star_medium);
-	al_destroy_bitmap(sprites.star_large);
-	al_destroy_bitmap(sprites.ship_sides_d);
-	al_destroy_bitmap(sprites.ship_sides_c);
-	al_destroy_bitmap(sprites.ship_sides_b);
-	al_destroy_bitmap(sprites.ship_sides_a);
-	al_destroy_bitmap(sprites.ship_l);
-	al_destroy_bitmap(sprites.ship_k);
-	al_destroy_bitmap(sprites.ship_j);
-	al_destroy_bitmap(sprites.ship_i);
-	al_destroy_bitmap(sprites.ship_h);
-	al_destroy_bitmap(sprites.ship_g);
-	al_destroy_bitmap(sprites.ship_f);
-	al_destroy_bitmap(sprites.ship_e);
-	al_destroy_bitmap(sprites.ship_d);
-	al_destroy_bitmap(sprites.ship_c);
-	al_destroy_bitmap(sprites.ship_b);
-	al_destroy_bitmap(sprites.ship_a);
-	al_destroy_bitmap(sprites.satellite_d);
-	al_destroy_bitmap(sprites.satellite_c);
-	al_destroy_bitmap(sprites.satellite_b);
-	al_destroy_bitmap(sprites.satellite_a);
-	al_destroy_bitmap(sprites.meteor_square_small);
-	al_destroy_bitmap(sprites.meteor_square_large);
-	al_destroy_bitmap(sprites.meteor_square_detailed_small);
-	al_destroy_bitmap(sprites.meteor_square_detailed_large);
-	al_destroy_bitmap(sprites.meteor_small);
-	al_destroy_bitmap(sprites.meteor_large);
-	al_destroy_bitmap(sprites.meteor_detailed_small);
-	al_destroy_bitmap(sprites.meteor_detailed_large);
-	al_destroy_bitmap(sprites.enemy_e);
-	al_destroy_bitmap(sprites.enemy_d);
-	al_destroy_bitmap(sprites.enemy_c);
-	al_destroy_bitmap(sprites.enemy_b);
-	al_destroy_bitmap(sprites.enemy_a);
-	al_destroy_bitmap(sprites.effect_yellow);
-	al_destroy_bitmap(sprites.effect_purple);
-	al_destroy_bitmap(sprites.sheet_px);
-	al_destroy_bitmap(sprites.sheet);
-}
 
 void init_keyboard() {
 	memset(key, 0, sizeof(key));
@@ -241,15 +62,13 @@ void free_user_data(b2BodyId body_id) {
 }
 
 void init_player() {
-	int width = al_get_bitmap_width(sprites.ship_a);
-	int height = al_get_bitmap_height(sprites.ship_a);
-
+	sprite_t *sprite = sprite_get("ship-a");
 	ecs_entity_t player = ecs_entity(world, { .name = "player" });
 
-	ecs_set(world, player, Sprite,		{ .image = sprites.ship_a });
-	ecs_set(world, player, Size,		{ .width = width, .height = height });
-	ecs_set(world, player, Position,	{ .x = display_center_x - width / 2, .y = display_center_y - height / 2 });
-	ecs_set(world, player, Center,		{ .cx = width / 2, .cy = height / 2 });
+	ecs_set(world, player, Sprite,		{ .image = sprite->bitmap });
+	ecs_set(world, player, Size,		{ .width = sprite->width, .height = sprite->height });
+	ecs_set(world, player, Position,	{ .x = display_center_x - sprite->width / 2, .y = display_center_y - sprite->height / 2 });
+	ecs_set(world, player, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 	ecs_set(world, player, Rotation,	{ .angle = 0.0f });
 	ecs_set(world, player, Weapon,		{ .type = w_one_bullet });
 	ecs_set(world, player, Ship,		{ .speed = 50, .tracing = false, .trace = { .tint = 0 } });
@@ -334,18 +153,15 @@ void create_asteroids() {
 			case 3: x = 550; y = 400; break;
 		}
 		
-		ALLEGRO_BITMAP *image = i % 2 == 1 ? sprites.meteor_detailed_large : sprites.meteor_detailed_small;
-		int width = al_get_bitmap_width(image);
-		int height = al_get_bitmap_height(image);
-		
+		sprite_t *sprite = sprite_get(i % 2 == 1 ? "meteor-detailed-large" : "meteor-detailed-small");
 		ecs_entity_t asteroid = ecs_new(world);
 
 		ecs_add_id(world, asteroid, Asteroid);
 		ecs_set(world, asteroid, Position,	{ .x = x, .y = y });
-		ecs_set(world, asteroid, Size,		{ .width = width, .height = height });
-		ecs_set(world, asteroid, Center,	{ .cx = width / 2, .cy = height / 2 });
+		ecs_set(world, asteroid, Size,		{ .width = sprite->width, .height = sprite->height });
+		ecs_set(world, asteroid, Center,	{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, asteroid, Rotation,	{ .angle = 0.0f });
-		ecs_set(world, asteroid, Sprite,	{ .image = image });
+		ecs_set(world, asteroid, Sprite,	{ .image = sprite->bitmap });
 
 		init_asteroid(asteroid);
 	}
@@ -410,9 +226,7 @@ bool bullet_shot_allowed() {
 }
 
 void player_shot() {
-	int bullet_width = al_get_bitmap_width(sprites.bullet_a);
-	int bullet_height = al_get_bitmap_height(sprites.bullet_a);
-
+	sprite_t *sprite = sprite_get("bullet-a");
 	ecs_entity_t player = ecs_lookup(world, "player");
 	
 	const Position *position = ecs_get(world, player, Position);
@@ -425,8 +239,8 @@ void player_shot() {
 		if (!bullet_shot_allowed()) return;
 		
 		Point pos = {
-			.x = position->x + center->cx - bullet_width / 2,
-			.y = position->y - bullet_height
+			.x = position->x + center->cx - sprite->width / 2,
+			.y = position->y - sprite->height
 		};
 
 		rotate_point_in(&pos, position->x + center->cx, position->y + center->cy, rot->angle);
@@ -435,10 +249,10 @@ void player_shot() {
 
 		ecs_add_id(world, bullet, Bullet);
 		ecs_set(world, bullet, Position,	{ .x = pos.x, .y = pos.y });
-		ecs_set(world, bullet, Size,		{ .width = bullet_width, .height = bullet_height });
-		ecs_set(world, bullet, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet, Size,		{ .width = sprite->width, .height = sprite->height });
+		ecs_set(world, bullet, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet, Sprite,		{ .image = sprites.bullet_a });
+		ecs_set(world, bullet, Sprite,		{ .image = sprite->bitmap });
 
 		init_bullet(bullet);
 		
@@ -449,13 +263,13 @@ void player_shot() {
 		int dx = size->width / 3;
 
 		Point pos1 = {
-			.x = position->x + dx - bullet_width / 2,
-			.y = position->y - bullet_height
+			.x = position->x + dx - sprite->width / 2,
+			.y = position->y - sprite->height
 		};
 
 		Point pos2 = {
-			.x = position->x + 2 * dx - bullet_width / 2,
-			.y = position->y - bullet_height
+			.x = position->x + 2 * dx - sprite->width / 2,
+			.y = position->y - sprite->height
 		};
 
 		rotate_point_in(&pos1, position->x + center->cx, position->y + center->cy, rot->angle);
@@ -465,19 +279,19 @@ void player_shot() {
 
 		ecs_add_id(world, bullet1, Bullet);
 		ecs_set(world, bullet1, Position,	{ .x = pos1.x, .y = pos1.y });
-		ecs_set(world, bullet1, Size,		{ .width = bullet_width, .height = bullet_height });
-		ecs_set(world, bullet1, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet1, Size,		{ .width = sprite->width, .height = sprite->height });
+		ecs_set(world, bullet1, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet1, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet1, Sprite,		{ .image = sprites.bullet_a });
+		ecs_set(world, bullet1, Sprite,		{ .image = sprite->bitmap });
 		
 		ecs_entity_t bullet2 = ecs_new(world);
 
 		ecs_add_id(world, bullet2, Bullet);
 		ecs_set(world, bullet2, Position,	{ .x = pos2.x, .y = pos2.y });
-		ecs_set(world, bullet2, Size,		{ .width = bullet_width, .height = bullet_height });
-		ecs_set(world, bullet2, Center,		{ .cx = bullet_width / 2, .cy = bullet_height / 2 });
+		ecs_set(world, bullet2, Size,		{ .width = sprite->width, .height = sprite->height });
+		ecs_set(world, bullet2, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet2, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet2, Sprite,		{ .image = sprites.bullet_a });
+		ecs_set(world, bullet2, Sprite,		{ .image = sprite->bitmap });
 
 		init_bullet(bullet1);
 		init_bullet(bullet2);
@@ -837,7 +651,7 @@ int main() {
 	al_register_event_source(queue, al_get_display_event_source(display));
 	al_register_event_source(queue, al_get_timer_event_source(timer));
 
-	init_sprites();
+	sprites_init();
 	init_keyboard();
 	init_player();
 	init_physics();
@@ -881,7 +695,7 @@ int main() {
 	al_destroy_display(display);
 	al_destroy_timer(timer);
 	al_destroy_event_queue(queue);
-	destroy_sprites();
+	sprites_destroy();
 	destroy_physics();
 	ecs_fini(world);
 
@@ -900,14 +714,6 @@ void* create(void* value, const char* description) {
 
 	log_msg("couldn't initialize %s\n", description);
 	exit(EXIT_FAILURE);
-}
-
-ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height) {
-	return (ALLEGRO_BITMAP*)create(al_create_sub_bitmap(sprites.sheet, x, y, width, height), "sprite");
-}
-
-ALLEGRO_BITMAP* grab_sprite_px(int x, int y, int width, int height) {
-	return (ALLEGRO_BITMAP*)create(al_create_sub_bitmap(sprites.sheet_px, x, y, width, height), "sprite-px");
 }
 
 float pixels_to_meters(int pixels) { return pixels * scaling_factor; }
