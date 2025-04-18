@@ -153,7 +153,6 @@ void sprites_destroy() {
 	while (hashmap_iter(map_sprites, &iter, &item)) {
 		const sprite_t *sprite = item;
 		al_destroy_bitmap(sprite->bitmap);
-		printf("%s ", sprite->name);
 	}
 
 	hashmap_free(map_sprites);

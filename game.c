@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stddef.h>
-#include <math.h>
 #include <time.h>
 
 #include <allegro5/allegro5.h>
@@ -14,17 +13,13 @@
 #include "components.c"
 #include "queries.c"
 #include "sprites.c"
+#include "helpers.c"
 
 #define KEY_SEEN 1
 #define KEY_RELEASED 2
 #define SHIP_SPEED 1
 
-const int display_width = 800;
-const int display_height = 600;
-int display_center_x = display_width / 2;
-int display_center_y = display_height / 2;
 unsigned char key[ALLEGRO_KEY_MAX];
-float scaling_factor = 0.1f;
 float time_step = 1.0f / 60.0f;
 int sub_step_count = 4;
 int bullets_interval = 100;			// Interval between bullet shots in milliseconds.
@@ -33,32 +28,8 @@ clock_t shot_time = 0;				// Last shot time.
 b2WorldId world_id;
 ecs_world_t* world;
 
-void log_msg(const char* message, const char* description);
-void init(bool value, const char* description);
-void* create(void* value, const char* description);
-ALLEGRO_BITMAP* grab_sprite(int x, int y, int width, int height);
-ALLEGRO_BITMAP* grab_sprite_px(int x, int y, int width, int height);
-float pixels_to_meters(int pixels);
-int meters_to_pixels(float meters);
-Point rotate_point(int x, int y, int cx, int cy, float angle);
-void rotate_point_in(Point *point, int cx, int cy, float angle);
-b2Vec2 angle_to_vector(float angle, float scale);
-float degrees_to_radians(int degrees);
-
 void init_keyboard() {
 	memset(key, 0, sizeof(key));
-}
-
-ecs_entity_t* user_data(ecs_entity_t entity) {
-	ecs_entity_t *data = malloc(sizeof(ecs_entity_t));
-	*data = entity;
-
-	return data;
-}
-
-void free_user_data(b2BodyId body_id) {
-	ecs_entity_t *entity = b2Body_GetUserData(body_id);
-	free(entity);
 }
 
 void init_player() {
@@ -639,13 +610,13 @@ int main() {
 	
 	register_components(world);
 	
-	init(al_init(), "allegro");
-	init(al_install_keyboard(), "keyboard");
-	init(al_init_image_addon(), "image addon");
+	al_init();
+	al_install_keyboard();
+	al_init_image_addon();
 
-	ALLEGRO_TIMER* timer = create(al_create_timer(1.0 / 30.0), "timer");
-	ALLEGRO_EVENT_QUEUE* queue = create(al_create_event_queue(), "queue");
-	ALLEGRO_DISPLAY* display = create(al_create_display(display_width, display_height), "display");
+	ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
+	ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
+	ALLEGRO_DISPLAY* display = al_create_display(display_width, display_height);
 
 	al_register_event_source(queue, al_get_keyboard_event_source());
 	al_register_event_source(queue, al_get_display_event_source(display));
@@ -700,53 +671,4 @@ int main() {
 	ecs_fini(world);
 
 	return EXIT_SUCCESS;
-}
-
-void init(bool value, const char* description) {
-	if (value) return;
-
-	log_msg("couldn't initialize %s\n", description);
-	exit(EXIT_FAILURE);
-}
-
-void* create(void* value, const char* description) {
-	if (value) return value;
-
-	log_msg("couldn't initialize %s\n", description);
-	exit(EXIT_FAILURE);
-}
-
-float pixels_to_meters(int pixels) { return pixels * scaling_factor; }
-int meters_to_pixels(float meters) { return (int)(meters / scaling_factor); }
-
-Point rotate_point(int x, int y, int cx, int cy, float angle) {
-	return (Point) {
-		.x = lroundf(cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx),
-		.y = lroundf(sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy)
-	};
-}
-
-void rotate_point_in(Point *point, int cx, int cy, float angle) {
-	int	x = point->x,
-		y = point->y;
-	
-	point->x = lroundf(cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx);
-	point->y = lroundf(sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy);
-}
-
-b2Vec2 angle_to_vector(float angle, float scale) {
-	return (b2Vec2) {
-		.x = cosf(angle) * scale,
-		.y = sinf(angle) * scale
-	};
-}
-
-float degrees_to_radians(int degrees) {
-	return degrees * M_PI / 180;
-}
-
-void log_msg(const char* message, const char* description) {
-	FILE* f = fopen("log.txt", "a");
-	fprintf(f, message, description);
-	fclose(f);
 }
