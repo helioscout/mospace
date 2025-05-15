@@ -75,7 +75,7 @@ void init_physics() {
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
-	shape_def.friction = 0.1f;
+	shape_def.material.friction = 0.1f;
 
 	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 }
@@ -101,7 +101,7 @@ void init_asteroid(ecs_entity_t asteroid) {
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
-	shape_def.friction = 0.01f;
+	shape_def.material.friction = 0.01f;
 
 	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 
@@ -181,7 +181,7 @@ void init_bullet(ecs_entity_t bullet) {
 	b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size->width) / 2, pixels_to_meters(size->height) / 2);
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
-	shape_def.friction = 0.01f;
+	shape_def.material.friction = 0.01f;
 	shape_def.filter.groupIndex = -1;
 
 	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
