@@ -102,6 +102,7 @@ void init_asteroid(ecs_entity_t asteroid) {
 	b2ShapeDef shape_def = b2DefaultShapeDef();
 	shape_def.density = 1.0f;
 	shape_def.material.friction = 0.01f;
+	shape_def.enableContactEvents = true;
 
 	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 
@@ -183,6 +184,7 @@ void init_bullet(ecs_entity_t bullet) {
 	shape_def.density = 1.0f;
 	shape_def.material.friction = 0.01f;
 	shape_def.filter.groupIndex = -1;
+	shape_def.enableContactEvents = true;
 
 	b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
 	
