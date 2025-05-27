@@ -4,8 +4,7 @@
 #include <stddef.h>
 #include <time.h>
 
-#include <allegro5/allegro5.h>
-#include <allegro5/allegro_image.h>
+#include <raylib.h>
 #include <box2d/box2d.h>
 #include <flecs.h>
 
@@ -15,11 +14,6 @@
 #include "sprites.c"
 #include "helpers.c"
 
-#define KEY_SEEN 1
-#define KEY_RELEASED 2
-#define SHIP_SPEED 1
-
-unsigned char key[ALLEGRO_KEY_MAX];
 float time_step = 1.0f / 60.0f;
 int sub_step_count = 4;
 int bullets_interval = 100;			// Interval between bullet shots in milliseconds.
@@ -28,17 +22,13 @@ clock_t shot_time = 0;				// Last shot time.
 b2WorldId world_id;
 ecs_world_t* world;
 
-void init_keyboard() {
-	memset(key, 0, sizeof(key));
-}
-
 void init_player() {
 	sprite_t *sprite = sprite_get("ship-a");
 	ecs_entity_t player = ecs_entity(world, { .name = "player" });
 
-	ecs_set(world, player, Sprite,		{ .image = sprite->bitmap });
+	ecs_set(world, player, Sprite,		{ .texture = sprite->texture });
 	ecs_set(world, player, Size,		{ .width = sprite->width, .height = sprite->height });
-	ecs_set(world, player, Position,	{ .x = display_center_x - sprite->width / 2, .y = display_center_y - sprite->height / 2 });
+	ecs_set(world, player, Position,	{ .x = DISPLAY_CENTER_X - sprite->width / 2, .y = DISPLAY_CENTER_Y - sprite->height / 2 });
 	ecs_set(world, player, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 	ecs_set(world, player, Rotation,	{ .angle = 0.0f });
 	ecs_set(world, player, Weapon,		{ .type = w_one_bullet });
@@ -47,9 +37,9 @@ void init_player() {
 	Ship *ship = ecs_get_mut(world, player, Ship);
 	
 	for (int i = 0; i < 10; i++) {
-		ship->trace.image[i] = sprites.trace_thin[i];
-		ship->trace.width[i] = al_get_bitmap_width(ship->trace.image[i]);
-		ship->trace.height[i] = al_get_bitmap_height(ship->trace.image[i]);
+		ship->trace.texture[i] = sprites.trace_thin[i];
+		ship->trace.width[i] = ship->trace.texture[i].width;
+		ship->trace.height[i] = ship->trace.texture[i].height;
 	}
 }
 
@@ -64,7 +54,7 @@ void init_physics() {
 	b2BodyDef body_def = b2DefaultBodyDef();
 	body_def.userData = user_data(player);
 	body_def.type = b2_dynamicBody;
-	body_def.position = (b2Vec2){ pixels_to_meters(display_center_x), pixels_to_meters(display_center_y) };
+	body_def.position = (b2Vec2){ pixels_to_meters(DISPLAY_CENTER_X), pixels_to_meters(DISPLAY_CENTER_Y) };
 
 	b2BodyId body_id = b2CreateBody(world_id, &body_def);
 
@@ -133,7 +123,7 @@ void create_asteroids() {
 		ecs_set(world, asteroid, Size,		{ .width = sprite->width, .height = sprite->height });
 		ecs_set(world, asteroid, Center,	{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, asteroid, Rotation,	{ .angle = 0.0f });
-		ecs_set(world, asteroid, Sprite,	{ .image = sprite->bitmap });
+		ecs_set(world, asteroid, Sprite,	{ .texture = sprite->texture });
 
 		init_asteroid(asteroid);
 	}
@@ -144,23 +134,7 @@ void create_spark(int x, int y) {
 
 	ecs_add_id(world, spark, Spark);
 	ecs_set(world, spark, Position,		{ .x = x, .y = y });
-	ecs_set(world, spark, Animation,	{ .frame = 0, .speed = 2, .count = 3, .images = &sprites.spark });
-}
-
-void process_keyboard(ALLEGRO_EVENT* event) {
-	switch (event->type) {
-		case ALLEGRO_EVENT_TIMER:
-			for (int i = 0; i < ALLEGRO_KEY_MAX; i++) key[i] &= KEY_SEEN;
-			break;
-
-		case ALLEGRO_EVENT_KEY_DOWN:
-			key[event->keyboard.keycode] = KEY_SEEN | KEY_RELEASED;
-			break;
-			
-		case ALLEGRO_EVENT_KEY_UP:
-			key[event->keyboard.keycode] &= KEY_RELEASED;
-			break;
-	}
+	ecs_set(world, spark, Animation,	{ .frame = 0, .speed = 2, .count = 3, .textures = &sprites.spark });
 }
 
 void init_bullet(ecs_entity_t bullet) {
@@ -225,7 +199,7 @@ void player_shot() {
 		ecs_set(world, bullet, Size,		{ .width = sprite->width, .height = sprite->height });
 		ecs_set(world, bullet, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet, Sprite,		{ .image = sprite->bitmap });
+		ecs_set(world, bullet, Sprite,		{ .texture = sprite->texture });
 
 		init_bullet(bullet);
 		
@@ -255,7 +229,7 @@ void player_shot() {
 		ecs_set(world, bullet1, Size,		{ .width = sprite->width, .height = sprite->height });
 		ecs_set(world, bullet1, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet1, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet1, Sprite,		{ .image = sprite->bitmap });
+		ecs_set(world, bullet1, Sprite,		{ .texture = sprite->texture });
 		
 		ecs_entity_t bullet2 = ecs_new(world);
 
@@ -264,7 +238,7 @@ void player_shot() {
 		ecs_set(world, bullet2, Size,		{ .width = sprite->width, .height = sprite->height });
 		ecs_set(world, bullet2, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
 		ecs_set(world, bullet2, Rotation,	{ .angle = rot->angle });
-		ecs_set(world, bullet2, Sprite,		{ .image = sprite->bitmap });
+		ecs_set(world, bullet2, Sprite,		{ .texture = sprite->texture });
 
 		init_bullet(bullet1);
 		init_bullet(bullet2);
@@ -284,25 +258,27 @@ void process_player() {
 	Weapon *weapon = ecs_get_mut(world, player, Weapon);
 	Ship *ship = ecs_get_mut(world, player, Ship);
 	
-	if (key[ALLEGRO_KEY_1]) weapon->type = w_one_bullet;
-	else if (key[ALLEGRO_KEY_2]) weapon->type = w_two_bullets;
+	if (IsKeyPressed(KEY_ONE)) weapon->type = w_one_bullet;
+	else if (IsKeyPressed(KEY_TWO)) weapon->type = w_two_bullets;
 	
-	if (key[ALLEGRO_KEY_A]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ -impulse, 0.0f }), true);
-	if (key[ALLEGRO_KEY_D]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ impulse, 0.0f }), true);
-	if (key[ALLEGRO_KEY_UP]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, -impulse }), true);
-	if (key[ALLEGRO_KEY_DOWN]) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, impulse }), true);
-	if (key[ALLEGRO_KEY_RIGHT]) b2Body_ApplyAngularImpulse(body_id, angular_impulse, true);
-	if (key[ALLEGRO_KEY_LEFT]) b2Body_ApplyAngularImpulse(body_id, -angular_impulse, true);
+	if (IsKeyDown(KEY_A)) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ -impulse, 0.0f }), true);
+	if (IsKeyDown(KEY_D)) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ impulse, 0.0f }), true);
+	if (IsKeyDown(KEY_UP)) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, -impulse }), true);
+	if (IsKeyDown(KEY_DOWN)) b2Body_ApplyLinearImpulseToCenter(body_id, b2RotateVector(b2Body_GetRotation(body_id), (b2Vec2){ 0.0f, impulse }), true);
+	if (IsKeyDown(KEY_RIGHT)) b2Body_ApplyAngularImpulse(body_id, angular_impulse, true);
+	if (IsKeyDown(KEY_LEFT)) b2Body_ApplyAngularImpulse(body_id, -angular_impulse, true);
 
-	if (key[ALLEGRO_KEY_Q]) {
+	if (IsKeyPressed(KEY_MINUS)) ship->speed = 0;
+	else if (IsKeyPressed(KEY_EQUAL)) ship->speed = 50;
+
+	if (IsKeyDown(KEY_Q)) {
 		if (ship->speed > 0) ship->speed--;
-	} else if (key[ALLEGRO_KEY_E]) {
+	} else if (IsKeyDown(KEY_E)) {
 		if (ship->speed < 50) ship->speed++;
-	} else if (key[ALLEGRO_KEY_MINUS]) ship->speed = 0;
-	else if (key[ALLEGRO_KEY_EQUALS]) ship->speed = 50;
+	}
 
 	// Emergency braking.
-	if (key[ALLEGRO_KEY_SPACE]) {
+	if (IsKeyDown(KEY_SPACE)) {
 		float linear_damping = b2Body_GetLinearDamping(body_id);
 		float angular_damping = b2Body_GetAngularDamping(body_id);
 		
@@ -313,9 +289,9 @@ void process_player() {
 		b2Body_SetAngularDamping(body_id, (50 - ship->speed) / 10.0f);
 	}
 
-	if (key[ALLEGRO_KEY_W]) player_shot();
+	if (IsKeyDown(KEY_W)) player_shot();
 	
-	ship->tracing = key[ALLEGRO_KEY_UP] || key[ALLEGRO_KEY_DOWN] || key[ALLEGRO_KEY_A] || key[ALLEGRO_KEY_D];
+	ship->tracing = IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_A) || IsKeyDown(KEY_D);
 }
 
 void clean_entities() {
@@ -337,7 +313,7 @@ void clean_entities() {
 		const Physics *physics = ecs_field(&iter, Physics, 3);
 
 		for (int i = 0; i < iter.count; i++) {
-			if (query_is_outside_of_rect(&pos[i], &size[i], &(Rectangle){ .x = 0, .y = 0, .width = display_width, .height = display_height })) {
+			if (query_is_outside_of_rect(&pos[i], &size[i], &(Rectangle){ .x = 0, .y = 0, .width = DISPLAY_WIDTH, .height = DISPLAY_HEIGHT })) {
 				free_user_data(physics[i].body_id);
 				b2DestroyBody(physics[i].body_id);
 				ecs_delete(world, iter.entities[i]);
@@ -498,25 +474,38 @@ void draw_player() {
 	const Sprite *sprite = ecs_get(world, player, Sprite);
 	const Position *pos = ecs_get(world, player, Position);
 	const Center *center = ecs_get(world, player, Center);
+	const Size *size = ecs_get(world, player, Size);
 	Ship *ship = ecs_get_mut(world, player, Ship);
-	
-	if (rot->angle == 0.0f) al_draw_bitmap(sprite->image, pos->x, pos->y, 0);
-	else al_draw_rotated_bitmap(sprite->image, center->cx, center->cy, pos->x + center->cx, pos->y + center->cy, rot->angle, 0);
+
+	if (rot->angle == 0.0f) DrawTexture(sprite->texture, pos->x, pos->y, WHITE);
+	else DrawTexturePro(
+		sprite->texture,
+		(Rectangle) { .x = 0.0f, .y = 0.0f, .width = sprite->texture.width, .height = sprite->texture.height },
+		(Rectangle) { .x = pos->x + center->cx, .y = pos->y + center->cy, .width = sprite->texture.width, .height = sprite->texture.height },
+		(Vector2) { .x = center->cx, .y = center->cy },
+		radians_to_degrees(rot->angle),
+		WHITE);
 
 	if (ship->tracing) {
 		int sprite_index = (ship->speed - 1) / 5;
-		
-		if (ship->trace.tint < 255) ship->trace.tint += 5;
-
-		al_draw_tinted_rotated_bitmap(
-			ship->trace.image[sprite_index],
-			al_map_rgb(255 - ship->trace.tint, 255, 255),
-			ship->trace.width[sprite_index] / 2.0f,
-			-center->cy,
+		float width = ship->trace.width[sprite_index];
+		float height = ship->trace.height[sprite_index];
+		Pointf position = rotate_pointf(
+			pos->x + center->cx - width / 2.0f,
+			pos->y + size->height,
 			pos->x + center->cx,
 			pos->y + center->cy,
-			rot->angle,
-			0);
+			rot->angle);
+		
+		if (ship->trace.tint < 255) ship->trace.tint += 5;
+		
+		DrawTexturePro(
+			ship->trace.texture[sprite_index],
+			(Rectangle) { .x = 0.0f, .y = 0.0f, .width = width, .height = height },
+			(Rectangle) { .x = position.x, .y = position.y, .width = width, .height = height },
+			(Vector2) { .x = 0.0f, .y = 0.0f },
+			radians_to_degrees(rot->angle),
+			(Color) { .r = 255 - ship->trace.tint, .g = 255, .b = 255, .a = 255 });
 	} else ship->trace.tint = 0;
 }
 
@@ -541,8 +530,14 @@ void draw_bullets() {
 		const Sprite *sprite = ecs_field(&iter, Sprite, 4);
 
 		for (int i = 0; i < iter.count; i++) {
-			if (rot[i].angle == 0.0f) al_draw_bitmap(sprite[i].image, pos[i].x, pos[i].y, 0);
-			else al_draw_rotated_bitmap(sprite[i].image, center[i].cx, center[i].cy, pos[i].x + center[i].cx, pos[i].y + center[i].cy, rot[i].angle, 0);
+			if (rot[i].angle == 0.0f) DrawTexture(sprite[i].texture, pos[i].x, pos[i].y, WHITE);
+			else DrawTexturePro(
+				sprite[i].texture,
+				(Rectangle) { .x = 0.0f, .y = 0.0f, .width = sprite[i].texture.width, .height = sprite[i].texture.height },
+				(Rectangle) { .x = pos[i].x + center[i].cx, .y = pos[i].y + center[i].cy, .width = sprite[i].texture.width, .height = sprite[i].texture.height },
+				(Vector2) { .x = center[i].cx, .y = center[i].cy },
+				radians_to_degrees(rot[i].angle),
+				WHITE);
 		}
 	}
 
@@ -570,8 +565,14 @@ void draw_asteroids() {
 		const Sprite *sprite = ecs_field(&iter, Sprite, 4);
 
 		for (int i = 0; i < iter.count; i++) {
-			if (rot[i].angle == 0.0f) al_draw_bitmap(sprite[i].image, pos[i].x, pos[i].y, 0);
-			else al_draw_rotated_bitmap(sprite[i].image, center[i].cx, center[i].cy, pos[i].x + center[i].cx, pos[i].y + center[i].cy, rot[i].angle, 0);
+			if (rot[i].angle == 0.0f) DrawTexture(sprite[i].texture, pos[i].x, pos[i].y, WHITE);
+			else DrawTexturePro(
+				sprite[i].texture,
+				(Rectangle) { .x = 0.0f, .y = 0.0f, .width = sprite[i].texture.width, .height = sprite[i].texture.height },
+				(Rectangle) { .x = pos[i].x + center[i].cx, .y = pos[i].y + center[i].cy, .width = sprite[i].texture.width, .height = sprite[i].texture.height },
+				(Vector2) { .x = center[i].cx, .y = center[i].cy },
+				radians_to_degrees(rot[i].angle),
+				WHITE);
 		}
 	}
 
@@ -595,8 +596,8 @@ void draw_sparks() {
 		const Animation *a = ecs_field(&iter, Animation, 2);
 
 		for (int i = 0; i < iter.count; i++) {
-			ALLEGRO_BITMAP *image = (*a[i].images)[a[i].frame / a[i].speed];
-			al_draw_bitmap(image, pos[i].x - al_get_bitmap_width(image) / 2.0, pos[i].y - al_get_bitmap_height(image) / 2.0, 0);
+			Texture2D texture = (*a[i].textures)[a[i].frame / a[i].speed];
+			DrawTexture(texture, pos[i].x - texture.width / 2.0, pos[i].y - texture.height / 2.0, WHITE);
 		}
 	}
 
@@ -604,73 +605,43 @@ void draw_sparks() {
 }
 
 int main() {
-	bool done = false;
-	bool redraw = true;
-	ALLEGRO_EVENT event;
-
 	world = ecs_init();
 	
 	register_components(world);
 	
-	al_init();
-	al_install_keyboard();
-	al_init_image_addon();
-
-	ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
-	ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
-	ALLEGRO_DISPLAY* display = al_create_display(display_width, display_height);
-
-	al_register_event_source(queue, al_get_keyboard_event_source());
-	al_register_event_source(queue, al_get_display_event_source(display));
-	al_register_event_source(queue, al_get_timer_event_source(timer));
-
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+	InitWindow(DISPLAY_WIDTH, DISPLAY_HEIGHT, "mospace");
+	SetTargetFPS(60);
+	
 	sprites_init();
-	init_keyboard();
 	init_player();
 	init_physics();
 
 	create_asteroids();
-	
-	al_start_timer(timer);
 
-	while (true) {
-		al_wait_for_event(queue, &event);
+	while (!WindowShouldClose()) {
+		clean_entities();
+		process_animations();
+		process_player();
+		process_physics();
+		process_collisions();
 
-		switch (event.type) {
-			case ALLEGRO_EVENT_TIMER:
-				clean_entities();
-				process_animations();
-				process_player();
-				process_physics();
-				process_collisions();
-				redraw = true;
-				break;
-				
-			case ALLEGRO_EVENT_DISPLAY_CLOSE: done = true; break;
-		}
+		BeginDrawing();
+		ClearBackground(BLACK);
 
-		if (done) break;
+		draw_player();
+		draw_bullets();
+		draw_asteroids();
+		draw_sparks();
 
-		process_keyboard(&event);
-
-		if (redraw && al_is_event_queue_empty(queue)) {
-			al_clear_to_color(al_map_rgb(0, 0, 0));
-			draw_player();
-			draw_bullets();
-			draw_asteroids();
-			draw_sparks();
-			al_flip_display();
-
-			redraw = false;
-		}
+		EndDrawing();
 	}
 
-	al_destroy_display(display);
-	al_destroy_timer(timer);
-	al_destroy_event_queue(queue);
 	sprites_destroy();
 	destroy_physics();
 	ecs_fini(world);
+
+	CloseWindow();
 
 	return EXIT_SUCCESS;
 }

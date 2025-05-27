@@ -1,14 +1,16 @@
 #pragma once
 
-#include <allegro5/allegro5.h>
 #include <stdint.h>
 #include <string.h>
+
+#include <raylib.h>
+
 #include "hashmap.h"
 #include "hashmap.c"
 
 struct sprite_t {
 	char* name;
-	ALLEGRO_BITMAP* bitmap;
+	Texture2D texture;
 	int width;
 	int height;
 };
@@ -16,10 +18,10 @@ struct sprite_t {
 typedef struct sprite_t sprite_t;
 
 struct sprites_t {
-	ALLEGRO_BITMAP* trace_thin[10];
-	ALLEGRO_BITMAP* trace_medium[10];
-	ALLEGRO_BITMAP* trace_thick[10];
-	ALLEGRO_BITMAP* spark[3];
+	Texture2D trace_thin[10];
+	Texture2D trace_medium[10];
+	Texture2D trace_thick[10];
+	Texture2D spark[3];
 } sprites;
 
 struct hashmap *map_sprites;
@@ -35,36 +37,25 @@ uint64_t sprite_hash(const void *item, uint64_t seed0, uint64_t seed1) {
 	return hashmap_sip(sprite->name, strlen(sprite->name), seed0, seed1);
 }
 
-void sprite_add(char* name, ALLEGRO_BITMAP *sheet, int x, int y, int width, int height) {
-	ALLEGRO_BITMAP *bitmap = al_create_sub_bitmap(sheet, x, y, width, height);
-
+void sprite_add(char* name, Image sheet, int x, int y, int width, int height) {
+	Image image = ImageFromImage(sheet, (Rectangle) { .x = x, .y = y, .width = width, .height = height });
+	Texture texture = LoadTextureFromImage(image);
+	
 	hashmap_set(map_sprites, &(sprite_t){
 		.name = name,
-		.bitmap = bitmap,
-		.width = al_get_bitmap_width(bitmap),
-		.height = al_get_bitmap_height(bitmap)
+		.texture = texture,
+		.width = texture.width,
+		.height = texture.height
 	});
+
+	UnloadImage(image);
 }
 
 void sprites_init() {
 	map_sprites = hashmap_new(sizeof(sprite_t), 40, 0, 0, sprite_hash, sprite_compare, NULL, NULL);
 
-	ALLEGRO_BITMAP *bmp_sheet = al_load_bitmap("assets/spritesheet.png");
-	ALLEGRO_BITMAP *bmp_sheet_px = al_load_bitmap("assets/spritesheet-px.png");
-
-	hashmap_set(map_sprites, &(sprite_t){
-		.name = "sheet",
-		.bitmap = bmp_sheet,
-		.width = al_get_bitmap_width(bmp_sheet),
-		.height = al_get_bitmap_height(bmp_sheet)
-	});
-
-	hashmap_set(map_sprites, &(sprite_t){
-		.name = "sheet-px",
-		.bitmap = bmp_sheet_px,
-		.width = al_get_bitmap_width(bmp_sheet_px),
-		.height = al_get_bitmap_height(bmp_sheet_px)
-	});
+	Image bmp_sheet = LoadImage("assets/spritesheet.png");
+	Image bmp_sheet_px = LoadImage("assets/spritesheet-px.png");
 
 	sprite_add("effect-purple", bmp_sheet, 156, 32, 32, 64);
 	sprite_add("effect-yellow", bmp_sheet, 180, 181, 32, 64);
@@ -110,28 +101,55 @@ void sprites_init() {
 	sprite_add("station-c", bmp_sheet, 0, 32, 60, 60);
 	sprite_add("bullet-a", bmp_sheet_px, 13, 0, 2, 9);
 
-	ALLEGRO_BITMAP* thin_sprite = sprites.trace_thin[9] = al_load_bitmap("assets/trace-thin.png");
-	ALLEGRO_BITMAP* medium_sprite = sprites.trace_medium[9] = al_load_bitmap("assets/trace-medium.png");
-	ALLEGRO_BITMAP* thick_sprite = sprites.trace_thick[9] = al_load_bitmap("assets/trace-thick.png");
+	Image thin_sprite = LoadImage("assets/trace-thin.png");
+	Image medium_sprite = LoadImage("assets/trace-medium.png");
+	Image thick_sprite = LoadImage("assets/trace-thick.png");
 
-	int thin_width = al_get_bitmap_width(thin_sprite);
-	int thin_height = al_get_bitmap_height(thin_sprite);
-	int medium_width = al_get_bitmap_width(medium_sprite);
-	int medium_height = al_get_bitmap_height(medium_sprite);
-	int thick_width = al_get_bitmap_width(thick_sprite);
-	int thick_height = al_get_bitmap_height(thick_sprite);
+	sprites.trace_thin[9] = LoadTextureFromImage(thin_sprite);
+	sprites.trace_medium[9] = LoadTextureFromImage(medium_sprite);
+	sprites.trace_thick[9] = LoadTextureFromImage(thick_sprite);
+		
+	int thin_width = thin_sprite.width;
+	int thin_height = thin_sprite.height;
+	int medium_width = medium_sprite.width;
+	int medium_height = medium_sprite.height;
+	int thick_width = thick_sprite.width;
+	int thick_height = thick_sprite.height;
 
 	for (int i = 0; i < 9; i++) {
 		int dh = 45 - i * 5;
-		
-		sprites.trace_thin[i] = al_create_sub_bitmap(thin_sprite, 0, dh, thin_width, thin_height - dh);
-		sprites.trace_medium[i] = al_create_sub_bitmap(medium_sprite, 0, dh, medium_width, medium_height - dh);
-		sprites.trace_thick[i] = al_create_sub_bitmap(thick_sprite, 0, dh, thick_width, thick_height - dh);
+
+		Image thin = ImageFromImage(thin_sprite, (Rectangle) { .x = 0, .y = dh, .width = thin_width, .height = thin_height - dh });
+		Image medium = ImageFromImage(medium_sprite, (Rectangle) { .x = 0, .y = dh, .width = medium_width, .height = medium_height - dh });
+		Image thick = ImageFromImage(thick_sprite, (Rectangle) { .x = 0, .y = dh, .width = thick_width, .height = thick_height - dh });
+
+		sprites.trace_thin[i] = LoadTextureFromImage(thin);
+		sprites.trace_medium[i] = LoadTextureFromImage(medium);
+		sprites.trace_thick[i] = LoadTextureFromImage(thick);
+
+		UnloadImage(thin);
+		UnloadImage(medium);
+		UnloadImage(thick);
 	}
 
-	sprites.spark[0] = al_create_sub_bitmap(bmp_sheet_px, 34, 0, 10, 8);
-	sprites.spark[1] = al_create_sub_bitmap(bmp_sheet_px, 45, 0, 7, 8);
-	sprites.spark[2] = al_create_sub_bitmap(bmp_sheet_px, 54, 0, 9, 8);
+	Image spark0 = ImageFromImage(bmp_sheet_px, (Rectangle) { .x = 34, .y = 0, .width = 10, .height = 8 });
+	Image spark1 = ImageFromImage(bmp_sheet_px, (Rectangle) { .x = 45, .y = 0, .width = 7, .height = 8 });
+	Image spark2 = ImageFromImage(bmp_sheet_px, (Rectangle) { .x = 54, .y = 0, .width = 9, .height = 8 });
+
+	sprites.spark[0] = LoadTextureFromImage(spark0);
+	sprites.spark[1] = LoadTextureFromImage(spark1);
+	sprites.spark[2] = LoadTextureFromImage(spark2);
+
+	UnloadImage(spark2);
+	UnloadImage(spark1);
+	UnloadImage(spark0);
+
+	UnloadImage(thin_sprite);
+	UnloadImage(medium_sprite);
+	UnloadImage(thick_sprite);
+
+	UnloadImage(bmp_sheet);
+	UnloadImage(bmp_sheet_px);
 }
 
 sprite_t* sprite_get(char* name) {
@@ -139,12 +157,12 @@ sprite_t* sprite_get(char* name) {
 }
 
 void sprites_destroy() {
-	for (int i = 0; i < 3; i++) al_destroy_bitmap(sprites.spark[i]);
+	for (int i = 0; i < 3; i++) UnloadTexture(sprites.spark[i]);
 	
 	for (int i = 0; i < 10; i++) {
-		al_destroy_bitmap(sprites.trace_thick[i]);
-		al_destroy_bitmap(sprites.trace_medium[i]);
-		al_destroy_bitmap(sprites.trace_thin[i]);
+		UnloadTexture(sprites.trace_thick[i]);
+		UnloadTexture(sprites.trace_medium[i]);
+		UnloadTexture(sprites.trace_thin[i]);
 	}
 
 	size_t iter = 0;
@@ -152,7 +170,7 @@ void sprites_destroy() {
 
 	while (hashmap_iter(map_sprites, &iter, &item)) {
 		const sprite_t *sprite = item;
-		al_destroy_bitmap(sprite->bitmap);
+		UnloadTexture(sprite->texture);
 	}
 
 	hashmap_free(map_sprites);

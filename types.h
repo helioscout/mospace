@@ -5,13 +5,10 @@ struct Point {
 	int y;
 };
 
-typedef struct Point Point;
-
-struct Rectangle {
-	int x;
-	int y;
-	int width;
-	int height;
+struct Pointf {
+	float x;
+	float y;
 };
 
-typedef struct Rectangle Rectangle;
+typedef struct Point Point;
+typedef struct Pointf Pointf;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <allegro5/allegro5.h>
+#include <raylib.h>
 #include <box2d/box2d.h>
 #include <flecs.h>
 
@@ -13,7 +13,7 @@ struct Trace {
 	int width[10];
 	int height[10];
 	int tint;					// Trace intensity.
-	ALLEGRO_BITMAP* image[10];
+	Texture2D texture[10];
 };
 
 typedef enum WeaponType WeaponType;
@@ -39,7 +39,7 @@ struct Rotation {
 };
 
 struct Sprite {
-	ALLEGRO_BITMAP* image;
+	Texture2D texture;
 };
 
 struct Ship {
@@ -56,7 +56,7 @@ struct Animation {
 	int frame;						// Current game loop frame since animation start.
 	int speed;						// Game loop frames count per animation frame.
 	int count;						// Animation frames count.
-	ALLEGRO_BITMAP* (*images)[];	// Animation frames images (sprites).
+	Texture2D (*textures)[];		// Animation frames images (sprites).
 };
 
 struct Physics {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <math.h>
 
 #include <box2d/box2d.h>
@@ -5,19 +7,26 @@
 
 #include "types.h"
 
-const int display_width = 800;
-const int display_height = 600;
-int display_center_x = display_width / 2;
-int display_center_y = display_height / 2;
-float scaling_factor = 0.1f;
+const int DISPLAY_WIDTH = 800;
+const int DISPLAY_HEIGHT = 600;
+int DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
+int DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
+float SCALING_FACTOR = 0.1f;
 
-float pixels_to_meters(int pixels) { return pixels * scaling_factor; }
-int meters_to_pixels(float meters) { return (int)(meters / scaling_factor); }
+float pixels_to_meters(int pixels) { return pixels * SCALING_FACTOR; }
+int meters_to_pixels(float meters) { return (int)(meters / SCALING_FACTOR); }
 
 Point rotate_point(int x, int y, int cx, int cy, float angle) {
 	return (Point) {
 		.x = lroundf(cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx),
 		.y = lroundf(sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy)
+	};
+}
+
+Pointf rotate_pointf(float x, float y, float cx, float cy, float angle) {
+	return (Pointf) {
+		.x = cosf(angle) * (x - cx) - sinf(angle) * (y - cy) + cx,
+		.y = sinf(angle) * (x - cx) + cosf(angle) * (y - cy) + cy
 	};
 }
 
@@ -38,6 +47,10 @@ b2Vec2 angle_to_vector(float angle, float scale) {
 
 float degrees_to_radians(int degrees) {
 	return degrees * M_PI / 180;
+}
+
+float radians_to_degrees(float radians) {
+	return radians * 180 / M_PI;
 }
 
 ecs_entity_t* user_data(ecs_entity_t entity) {
