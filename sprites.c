@@ -41,7 +41,7 @@ void sprite_add(char* name, Image sheet, int x, int y, int width, int height) {
 	Image image = ImageFromImage(sheet, (Rectangle) { .x = x, .y = y, .width = width, .height = height });
 	Texture texture = LoadTextureFromImage(image);
 	
-	hashmap_set(map_sprites, &(sprite_t){
+	hashmap_set(map_sprites, &(sprite_t) {
 		.name = name,
 		.texture = texture,
 		.width = texture.width,
@@ -153,7 +153,7 @@ void sprites_init() {
 }
 
 sprite_t* sprite_get(char* name) {
-	return (sprite_t*)hashmap_get(map_sprites, &(sprite_t){ .name = name });
+	return (sprite_t*)hashmap_get(map_sprites, &(sprite_t) { .name = name });
 }
 
 void sprites_destroy() {

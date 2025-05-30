@@ -1,17 +1,22 @@
 #pragma once
 
 #include <math.h>
+#include <time.h>
 
 #include <box2d/box2d.h>
 #include <flecs.h>
 
+#include "components.c"
 #include "types.h"
 
 const int DISPLAY_WIDTH = 800;
 const int DISPLAY_HEIGHT = 600;
-int DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
-int DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
-float SCALING_FACTOR = 0.1f;
+const int DISPLAY_CENTER_X = DISPLAY_WIDTH / 2;
+const int DISPLAY_CENTER_Y = DISPLAY_HEIGHT / 2;
+const float SCALING_FACTOR = 0.1f;
+const float TIME_STEP = 1.0f / 60.0f;
+const int SUB_STEP_COUNT = 4;
+const int SHOT_INTERVAL = 100;			// Interval between shots in milliseconds.
 
 float pixels_to_meters(int pixels) { return pixels * SCALING_FACTOR; }
 int meters_to_pixels(float meters) { return (int)(meters / SCALING_FACTOR); }
@@ -63,4 +68,18 @@ ecs_entity_t* user_data(ecs_entity_t entity) {
 void free_user_data(b2BodyId body_id) {
 	ecs_entity_t *entity = b2Body_GetUserData(body_id);
 	free(entity);
+}
+
+bool shot_allowed(clock_t shot_time) {
+	if (!shot_time) return true;
+
+	double duration = 1000.0 * (clock() - shot_time) / CLOCKS_PER_SEC;
+	return duration >= SHOT_INTERVAL;
+}
+
+bool is_outside_of_rect(const Position *pos, const Size *size, const Rectangle *rect) {
+	return	pos->x + size->width < rect->x  ||
+			pos->x > rect->x + rect->width  ||
+			pos->y + size->height < rect->y ||
+			pos->y > rect->y + rect->height;
 }
