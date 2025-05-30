@@ -8,14 +8,12 @@
 #include "hashmap.h"
 #include "hashmap.c"
 
-struct sprite_t {
+typedef struct sprite_t {
 	char* name;
 	Texture2D texture;
 	int width;
 	int height;
-};
-
-typedef struct sprite_t sprite_t;
+} sprite_t;
 
 struct sprites_t {
 	Texture2D trace_thin[10];

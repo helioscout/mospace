@@ -180,7 +180,7 @@ void control(ecs_iter_t *iter) {
 				if (IsKeyDown(KEY_O)) actions[i].actions |= ZoomOut;
 
 				if (IsKeyPressed(KEY_F)) {
-					if (IsWindowFullscreen()) actions[i].actions |= FullscreenOff;
+					if (state->fullscren) actions[i].actions |= FullscreenOff;
 					else actions[i].actions |= FullscreenOn;
 				}
 			}
@@ -223,6 +223,8 @@ void actions(ecs_iter_t *iter) {
 			if (action & MaximizeSpeed) ship[i].speed = 500;
 			if (action & DecreaseSpeed && ship[i].speed > 0) ship[i].speed--;
 			if (action & IncreaseSpeed && ship[i].speed < 50) ship[i].speed++;
+			if (action & FullscreenOn)  { SetWindowState(FLAG_FULLSCREEN_MODE); state->fullscren = true; }
+			if (action & FullscreenOff) { ClearWindowState(FLAG_FULLSCREEN_MODE); state->fullscren = false; }
 
 			if (action & Brake) {
 				float linear_damping = b2Body_GetLinearDamping(body_id);

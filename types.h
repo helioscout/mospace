@@ -1,14 +1,11 @@
 #pragma once
 
-struct Point {
+typedef struct Point {
 	int x;
 	int y;
-};
+} Point;
 
-struct Pointf {
+typedef struct Pointf {
 	float x;
 	float y;
-};
-
-typedef struct Point Point;
-typedef struct Pointf Pointf;
+} Pointf;

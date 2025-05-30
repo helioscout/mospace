@@ -1,12 +1,13 @@
 #pragma once
 
 #include <time.h>
+#include <stdbool.h>
 
 #include <raylib.h>
 #include <box2d/box2d.h>
 #include <flecs.h>
 
-enum Action : uint_fast64_t {
+typedef enum Action : uint_fast64_t {
 	Nothing =		0b0000000000000000000000000000000000000000000000000000000000000000,
 	UseOneBullet =	0b0000000000000000000000000000000000000000000000000000000000000001,
 	UseTwoBullets =	0b0000000000000000000000000000000000000000000000000000000000000010,
@@ -33,109 +34,90 @@ enum Action : uint_fast64_t {
 	ZoomOut =		0b0000000000000000000000000000000000000000010000000000000000000000,
 	FullscreenOn =	0b0000000000000000000000000000000000000000100000000000000000000000,
 	FullscreenOff =	0b0000000000000000000000000000000000000001000000000000000000000000
-};
+} Action;
 
-enum GameScreen {
+typedef enum GameScreen {
 	Menu,
 	Playing,
 	Paused,
 	Over
-};
+} GameScreen;
 
-enum WeaponKind {
+typedef enum WeaponKind {
 	OneBullet = 1,
 	TwoBullets = 2
-};
+} WeaponKind;
 
-struct Trace {
+typedef struct Trace {
 	int width[10];
 	int height[10];
 	int tint;					// Trace intensity.
 	Texture2D texture[10];
-};
+} Trace;
 
-typedef enum Action Action;
-typedef enum GameScreen GameScreen;
-typedef enum WeaponKind WeaponKind;
-typedef struct Trace Trace;
-
-struct Actions {
+typedef struct Actions {
 	Action actions;
-};
+} Actions;
 
-struct Position {
+typedef struct Position {
 	int x;
 	int y;
-};
+} Position;
 
-struct Size {
+typedef struct Size {
 	int width;
 	int height;
-};
+} Size;
 
-struct Center {
+typedef struct Center {
 	int cx;			// Center relative x coordinate (width / 2).
 	int cy;			// Center relative y coordinate (height / 2).
-};
+} Center;
 
-struct Rotation {
+typedef struct Rotation {
 	float angle;	// Rotation angle in radians.
-};
+} Rotation;
 
-struct Sprite {
+typedef struct Sprite {
 	Texture2D texture;
-};
+} Sprite;
 
-struct Ship {
+typedef struct Ship {
 	int speed;			// Maximum ship speed from 0 to 50 (anti-damping).
 	bool tracing;		// Ship tracing sign (draw trace).
 	Trace trace;
-};
+} Ship;
 
-struct Weapon {
+typedef struct Weapon {
 	WeaponKind kind;
 	clock_t shot;
-};
+} Weapon;
 
-struct Animation {
+typedef struct Animation {
 	int frame;						// Current game loop frame since animation start.
 	int speed;						// Game loop frames count per animation frame.
 	int count;						// Animation frames count.
 	Texture2D (*textures)[];		// Animation frames images (sprites).
-};
+} Animation;
 
-struct Handle {
+typedef struct Handle {
 	b2BodyId body_id;
-};
+} Handle;
 
-struct Collision {
+typedef struct Collision {
 	ecs_entity_t entity;
-};
+} Collision;
 
-struct Space {
+typedef struct Space {
 	b2WorldId world_id;
 	b2DebugDraw debug_drawer;
-};
+} Space;
 
-typedef struct Actions Actions;
-typedef struct Position Position;
-typedef struct Size Size;
-typedef struct Center Center;
-typedef struct Rotation Rotation;
-typedef struct Sprite Sprite;
-typedef struct Ship Ship;
-typedef struct Weapon Weapon;
-typedef struct Animation Animation;
-typedef struct Handle Handle;
-typedef struct Collision Collision;
-typedef struct Space Space;
-
-struct GameState {
+typedef struct GameState {
 	GameScreen screen;
 	Position position;
-};
-
-typedef struct GameState GameState;
+	bool fullscren;
+} GameState;
 
 ECS_COMPONENT_DECLARE(Actions);
 ECS_COMPONENT_DECLARE(GameState);
