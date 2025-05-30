@@ -2,6 +2,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <raylib.h>
 #include <flecs.h>
@@ -20,6 +21,7 @@ typedef struct systems_t {
 	ecs_entity_t actions;
 	ecs_entity_t physics;
 	ecs_entity_t transformation;
+	ecs_entity_t camera;
 	ecs_entity_t draw;
 	ecs_entity_t debug;
 	ecs_entity_t shooting;
@@ -203,7 +205,7 @@ void actions(ecs_iter_t *iter) {
 			b2BodyId body_id = handle[i].body_id;
 
 			float impulse = 3.90625 * b2Body_GetMass(body_id);
-			float angular_impulse = 0.6510417 * b2Body_GetMass(body_id);
+			float angular_impulse = 0.7510417 * b2Body_GetMass(body_id);
 
 			b2Rot rotation = b2Body_GetRotation(body_id);
 			b2Vec2 vec_left = b2RotateVector(rotation, (b2Vec2) { -impulse, 0.0f });
@@ -223,8 +225,18 @@ void actions(ecs_iter_t *iter) {
 			if (action & MaximizeSpeed) ship[i].speed = 500;
 			if (action & DecreaseSpeed && ship[i].speed > 0) ship[i].speed--;
 			if (action & IncreaseSpeed && ship[i].speed < 50) ship[i].speed++;
-			if (action & FullscreenOn)  { SetWindowState(FLAG_FULLSCREEN_MODE); state->fullscren = true; }
-			if (action & FullscreenOff) { ClearWindowState(FLAG_FULLSCREEN_MODE); state->fullscren = false; }
+			if (action & FullscreenOn)  { ToggleBorderlessWindowed(); state->fullscren = true; }
+			if (action & FullscreenOff) { ToggleBorderlessWindowed(); state->fullscren = false; }
+			
+			if (action & ZoomIn && state->zoom < 2.0 && zoom_allowed(state->scaled)) {
+				state->zoom += 0.1;
+				state->scaled = clock();
+			}
+			
+			if (action & ZoomOut && state->zoom > 1.0 && zoom_allowed(state->scaled)) {
+				state->zoom -= 0.1;
+				state->scaled = clock();
+			}
 
 			if (action & Brake) {
 				float linear_damping = b2Body_GetLinearDamping(body_id);
@@ -233,8 +245,14 @@ void actions(ecs_iter_t *iter) {
 				if (linear_damping < 100) b2Body_SetLinearDamping(body_id, linear_damping * 1.2f + 0.5f);
 				if (angular_damping < 100) b2Body_SetAngularDamping(body_id, angular_damping * 1.2f + 0.5f);
 			} else {
-				b2Body_SetLinearDamping(body_id, (50 - ship->speed) / 10.0f );
-				b2Body_SetAngularDamping(body_id, (50 - ship->speed) / 10.0f);
+				b2Vec2 vec_velocity = b2Body_GetLinearVelocity(body_id);
+				float linear_velocity = fmaxf(fabsf(vec_velocity.x), fabsf(vec_velocity.y));
+				float angular_velocity = fabsf(b2Body_GetAngularVelocity(body_id));
+				float linear_factor = linear_velocity >= 200.0f ? linear_velocity : 0.0f;
+				float angular_factor = angular_velocity >= 10.0f ? angular_velocity : 0.0f;
+
+				b2Body_SetLinearDamping(body_id, (50 + linear_factor - ship->speed) / 10.0f );
+				b2Body_SetAngularDamping(body_id, (50 + angular_factor - ship->speed) / 10.0f);
 			}
 
 			ship[i].tracing = action & ( MoveForward | MoveBackward | MoveLeft | MoveRight );
@@ -291,12 +309,24 @@ void transformation(ecs_iter_t *iter) {
 
 			// If the entity is player.
 			if (ecs_field_is_set(iter, 4)) {
-				state->position = (Position) { .x = pos[i].x + center[i].cx, .y = pos[i].y + center[i].cy };
+				state->position = (Vector2) { .x = pos[i].x + center[i].cx, .y = pos[i].y + center[i].cy };
 			}
 		}
 	}
 
 	// printf("transformation\n");
+}
+
+void camera(ecs_iter_t *iter) {
+	GameState *state = ecs_field(iter, GameState, 0);
+	
+	if (state->screen == Playing) {
+		state->camera->zoom = state->zoom;
+		state->camera->target = state->position;
+		state->camera->offset = (Vector2) { .x = GetScreenWidth() / 2.0f, .y = GetScreenHeight() / 2.0f };
+	}
+
+	// printf("camera\n");
 }
 
 void draw(ecs_iter_t *iter) {
@@ -531,14 +561,22 @@ void cleaning(ecs_iter_t *iter) {
 	const Size *size = ecs_field(iter, Size, 1);
 	const Handle *handle = ecs_field(iter, Handle, 2);
 	GameState *state = ecs_field(iter, GameState, 4);
+
+	int screen_width = GetScreenWidth();
+	int screen_height = GetScreenHeight();
 	
+	Rectangle rect = (Rectangle) {
+		.x = state->position.x - screen_width / 2.0f,
+		.y = state->position.y - screen_height / 2.0f,
+		.width = screen_width,
+		.height = screen_height
+	};
+
 	if (state->screen == Playing) {
 		for (int i = 0; i < iter->count; i++) {
 			// Of the entity is Bullet.
 			if (ecs_field_is_set(iter, 3)) {
-				if (is_outside_of_rect(&pos[i], &size[i], &(Rectangle) {
-				    	.x = 0, .y = 0,
-				    	.width = DISPLAY_WIDTH, .height = DISPLAY_HEIGHT })) {
+				if (is_outside_of_rect(&pos[i], &size[i], &rect)) {
 					free_user_data(handle[i].body_id);
 					b2DestroyBody(handle[i].body_id);
 					ecs_delete(world, iter->entities[i]);
@@ -661,6 +699,17 @@ systems_t register_systems(ecs_world_t *world) {
 		.callback = transformation
 	});
 
+	ecs_entity_t _camera = ecs_system(world, {
+		.entity = ecs_entity(world, {
+			.name = "camera",
+			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
+		}),
+		.query.terms = {
+			{ ecs_id(GameState), .src = ecs_id(GameState) }
+		},
+		.callback = camera
+	});
+
 	ecs_entity_t _draw = ecs_system(world, {
 		.entity = ecs_entity(world, {
 			.name = "draw",
@@ -770,7 +819,8 @@ systems_t register_systems(ecs_world_t *world) {
 		.control		= _control,
 		.actions		= _actions,
 		.physics		= _physics,
-		.transformation = _transformation,
+		.transformation	= _transformation,
+		.camera			= _camera,
 		.draw			= _draw,
 		.debug			= _debug,
 		.shooting		= _shooting,

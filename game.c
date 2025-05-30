@@ -13,8 +13,12 @@
 int main() {
 	ecs_world_t* world = ecs_init();
 	
+	Camera2D camera = (Camera2D) {
+		.zoom = 1.0f,
+	};
+
 	register_components(world);
-	register_resources(world);
+	register_resources(world, &camera);
 	systems_t sys = register_systems(world);
 	
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
@@ -28,9 +32,11 @@ int main() {
 	while (!WindowShouldClose()) {
 		BeginDrawing();
 		ClearBackground(BLACK);
+		BeginMode2D(camera);
 		
 		ecs_progress(world, 0.0f);
 
+		EndMode2D();
 		EndDrawing();
 	}
 

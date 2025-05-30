@@ -114,9 +114,12 @@ typedef struct Space {
 } Space;
 
 typedef struct GameState {
+	Camera2D *camera;
 	GameScreen screen;
-	Position position;
+	Vector2 position;
 	bool fullscren;
+	float zoom;
+	clock_t scaled;
 } GameState;
 
 ECS_COMPONENT_DECLARE(Actions);

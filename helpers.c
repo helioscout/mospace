@@ -17,6 +17,7 @@ const float SCALING_FACTOR = 0.1f;
 const float TIME_STEP = 1.0f / 60.0f;
 const int SUB_STEP_COUNT = 4;
 const int SHOT_INTERVAL = 100;			// Interval between shots in milliseconds.
+const int ZOOM_INTERVAL = 100;			// Interval between camera zoom in milliseconds.
 
 float pixels_to_meters(int pixels) { return pixels * SCALING_FACTOR; }
 int meters_to_pixels(float meters) { return (int)(meters / SCALING_FACTOR); }
@@ -75,6 +76,13 @@ bool shot_allowed(clock_t shot_time) {
 
 	double duration = 1000.0 * (clock() - shot_time) / CLOCKS_PER_SEC;
 	return duration >= SHOT_INTERVAL;
+}
+
+bool zoom_allowed(clock_t zoom_time) {
+	if (!zoom_time) return true;
+
+	double duration = 1000.0 * (clock() - zoom_time) / CLOCKS_PER_SEC;
+	return duration >= ZOOM_INTERVAL;
 }
 
 bool is_outside_of_rect(const Position *pos, const Size *size, const Rectangle *rect) {
