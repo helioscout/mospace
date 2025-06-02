@@ -7,7 +7,6 @@
 
 #include "components.c"
 #include "systems.c"
-#include "sprites.c"
 #include "loader.c"
 
 int main() {
@@ -17,16 +16,15 @@ int main() {
 		.zoom = 1.0f,
 	};
 
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+	SetTraceLogLevel(LOG_WARNING | LOG_ERROR | LOG_FATAL);
+	InitWindow(DISPLAY_WIDTH, DISPLAY_HEIGHT, "mospace");
+	SetTargetFPS(60);
+
 	register_components(world);
 	register_resources(world, &camera);
 	systems_t sys = register_systems(world);
 	
-	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-	InitWindow(DISPLAY_WIDTH, DISPLAY_HEIGHT, "mospace");
-	SetTargetFPS(60);
-
-	sprites_init();
-
 	ecs_enable(world, sys.debug, false);
 
 	while (!WindowShouldClose()) {

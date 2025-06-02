@@ -34,7 +34,7 @@ typedef struct systems_t {
 void load(ecs_iter_t *iter) {
 	ecs_world_t *world = iter->world;
 
-	sprite_t *sprite = sprite_get("ship-a");
+	sprite_t *sprite = sprite_get("player-ship-a-bw");
 	ecs_entity_t player = ecs_new(world);
 
 	Trace trace = (Trace) { .tint = 0 };
@@ -66,7 +66,7 @@ void load(ecs_iter_t *iter) {
 			case 3: x = 550; y = 400; break;
 		}
 		
-		sprite_t *sprite = sprite_get(i % 2 == 1 ? "meteor-detailed-large" : "meteor-detailed-small");
+		sprite_t *sprite = sprite_get(i % 2 == 1 ? "asteroid-detailed-large-bw" : "asteroid-detailed-small-bw");
 		ecs_entity_t asteroid = ecs_new(world);
 
 		ecs_add_id(world, asteroid, Asteroid);
