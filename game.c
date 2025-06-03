@@ -8,6 +8,7 @@
 #include "components.c"
 #include "systems.c"
 #include "loader.c"
+#include "helpers.c"
 
 int main() {
 	ecs_world_t* world = ecs_init();

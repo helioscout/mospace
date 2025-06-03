@@ -62,7 +62,7 @@ insert into sprite (key, file_name, label) values ('enemy-ship-e-bw', 'enemy-shi
 insert into sprite (key, file_name, label) values ('asteroid-detailed-large-bw', 'asteroid-detailed-large-bw.png', '');
 insert into sprite (key, file_name, label) values ('asteroid-detailed-small-bw', 'asteroid-detailed-small-bw.png', '');
 insert into sprite (key, file_name, label) values ('asteroid-large-bw', 'asteroid-large-bw.png', '');
-insert into sprite (key, file_name, label) values ('asteroid-small-bw', 'asteroid-small-bw', '');
+insert into sprite (key, file_name, label) values ('asteroid-small-bw', 'asteroid-small-bw.png', '');
 insert into sprite (key, file_name, label) values ('asteroid-square-detailed-large-bw', 'asteroid-square-detailed-large-bw.png', '');
 insert into sprite (key, file_name, label) values ('asteroid-square-detailed-small-bw', 'asteroid-square-detailed-small-bw.png', '');
 insert into sprite (key, file_name, label) values ('asteroid-square-large-bw', 'asteroid-square-large-bw.png', '');
