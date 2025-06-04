@@ -39,7 +39,7 @@ void load(ecs_iter_t *iter) {
 
 	Trace trace = (Trace) { .tint = 0 };
 
-	for (int i = 0; i < 10; i++) {
+	for (size_t i = 0; i < 10; i++) {
 		trace.texture[i] = sprites.trace_thin[i];
 		trace.width[i] = trace.texture[i].width;
 		trace.height[i] = trace.texture[i].height;
@@ -56,7 +56,7 @@ void load(ecs_iter_t *iter) {
 	ecs_set(world, player, Actions,		{ .actions = Nothing });
 	ecs_set(world, player, Handle,		{ .body_id = b2_nullBodyId });
 	
-	for (int i = 0; i < 4; i ++) {
+	for (size_t i = 0; i < 4; i ++) {
 		int x, y;
 
 		switch (i) {
@@ -112,7 +112,7 @@ void generate(ecs_iter_t *iter) {
 	Handle *handle = ecs_field(iter, Handle, 4);
 	Space *space = ecs_field(iter, Space, 7);
 
-	for (int i = 0; i < iter->count; i++) {
+	for (size_t i = 0; i < iter->count; i++) {
 		b2BodyDef body_def = b2DefaultBodyDef();
 		body_def.userData = user_data(iter->entities[i]);
 		body_def.type = b2_dynamicBody;
@@ -154,7 +154,7 @@ void control(ecs_iter_t *iter) {
 	Actions *actions = ecs_field(iter, Actions, 0);
 	GameState *state = ecs_field(iter, GameState, 2);
 
-	for (int i = 0; i < iter->count; i++) {
+	for (size_t i = 0; i < iter->count; i++) {
 		if (state->screen == Playing) {
 			actions[i].actions = Nothing;
 			
@@ -200,7 +200,7 @@ void actions(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 5);
 
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			Action action = actions[i].actions;
 			b2BodyId body_id = handle[i].body_id;
 
@@ -273,7 +273,7 @@ void physics(ecs_iter_t *iter) {
 
 		b2ContactEvents events = b2World_GetContactEvents(space->world_id);
 
-		for (int j = 0; j < events.beginCount; j++) {
+		for (size_t j = 0; j < events.beginCount; j++) {
 			b2ContactBeginTouchEvent *event = events.beginEvents + j;
 			b2BodyId body_id_a = b2Shape_GetBody(event->shapeIdA);
 			b2BodyId body_id_b = b2Shape_GetBody(event->shapeIdB);
@@ -299,7 +299,7 @@ void transformation(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 5);
 	
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			b2Vec2 position = b2Body_GetPosition(handle[i].body_id);
 			b2Rot rotation = b2Body_GetRotation(handle[i].body_id);
 
@@ -339,7 +339,7 @@ void draw(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 6);
 	
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			if (rot[i].angle == 0.0f) {
 				DrawTexture(sprite[i].texture, pos[i].x, pos[i].y, WHITE);
 			}
@@ -453,7 +453,7 @@ void shooting(ecs_iter_t *iter) {
 	Space *space = ecs_field(iter, Space, 7);
 
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			if (actions[i].actions & Shoot && shot_allowed(weapon[i].shot)) {
 				switch (weapon[i].kind) {
 					case OneBullet: {
@@ -509,7 +509,7 @@ void collisions(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 5);
 	
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			// If the entity is bullet.
 			if (ecs_field_is_set(iter, 4)) {
 				free_user_data(handle[i].body_id);
@@ -536,7 +536,7 @@ void effects(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 3);
 	
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			// Of the entity is Spark.
 			if (ecs_field_is_set(iter, 2)) {
 				a[i].frame++;
@@ -573,7 +573,7 @@ void cleaning(ecs_iter_t *iter) {
 	};
 
 	if (state->screen == Playing) {
-		for (int i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < iter->count; i++) {
 			// Of the entity is Bullet.
 			if (ecs_field_is_set(iter, 3)) {
 				if (is_outside_of_rect(&pos[i], &size[i], &rect)) {
@@ -809,7 +809,8 @@ systems_t register_systems(ecs_world_t *world) {
 		.query.terms = {
 			{ ecs_id(Space), .src = ecs_id(Space) }
 		},
-		.run = destroy
+		.run = destroy,
+		.immediate = true
 	});
 
 	return (systems_t) {

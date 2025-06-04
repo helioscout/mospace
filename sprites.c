@@ -99,7 +99,7 @@ void sprites_init() {
 	int thick_width = thick_sprite.width;
 	int thick_height = thick_sprite.height;
 
-	for (int i = 0; i < 9; i++) {
+	for (size_t i = 0; i < 9; i++) {
 		int dh = 45 - i * 5;
 
 		Image thin = ImageFromImage(thin_sprite, (Rectangle) { .x = 0, .y = dh, .width = thin_width, .height = thin_height - dh });
@@ -139,9 +139,9 @@ sprite_t* sprite_get(char* key) {
 }
 
 void sprites_destroy() {
-	for (int i = 0; i < 3; i++) UnloadTexture(sprites.spark[i]);
+	for (size_t i = 0; i < 3; i++) UnloadTexture(sprites.spark[i]);
 	
-	for (int i = 0; i < 10; i++) {
+	for (size_t i = 0; i < 10; i++) {
 		UnloadTexture(sprites.trace_thick[i]);
 		UnloadTexture(sprites.trace_medium[i]);
 		UnloadTexture(sprites.trace_thin[i]);
