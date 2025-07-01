@@ -1,4 +1,5 @@
-*.exe
-*.pdb
-*.sublime-project
-*.sublime-workspace
+/*.exe
+/*.pdb
+/*.sublime-project
+/*.sublime-workspace
+bin/assets

@@ -94,3 +94,9 @@ insert into sprite (key, file_name, label) values ('star-tiny-bw', 'star-tiny-bw
 insert into sprite (key, file_name, label) values ('station-a-bw', 'station-a-bw.png', '');
 insert into sprite (key, file_name, label) values ('station-b-bw', 'station-b-bw.png', '');
 insert into sprite (key, file_name, label) values ('station-c-bw', 'station-c-bw.png', '');
+
+-- Tag names should repeat coumn names of tag table.
+-- It is used only for editor interface purposes.
+insert into tags (name) values ('player');
+insert into tags (name) values ('asteroid');
+insert into tags (name) values ('enemy');

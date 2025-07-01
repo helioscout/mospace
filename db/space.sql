@@ -1,11 +1,16 @@
 DROP INDEX "sprite_key_unique";
+DROP INDEX "tags_name_unique";
 DROP INDEX "world_label_unique";
+
+DROP TRIGGER "trigger_entity_delete";
+DROP TRIGGER "trigger_world_delete";
 
 DROP TABLE IF EXISTS "entity";
 DROP TABLE IF EXISTS "position";
 DROP TABLE IF EXISTS "rotation";
 DROP TABLE IF EXISTS "sprite";
 DROP TABLE IF EXISTS "tag";
+DROP TABLE IF EXISTS "tags";
 DROP TABLE IF EXISTS "world";
 
 CREATE TABLE "entity" (
@@ -15,12 +20,21 @@ CREATE TABLE "entity" (
   "rotation_id" integer,
   "tag_id" integer,
   "sprite_key" TEXT NOT NULL,
-  CONSTRAINT "fk_entity_world" FOREIGN KEY ("world_id") REFERENCES "world" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "fk_entity_position" FOREIGN KEY ("position_id") REFERENCES "position" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "fk_entity_rotation" FOREIGN KEY ("rotation_id") REFERENCES "rotation" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "fk_entity_tag" FOREIGN KEY ("tag_id") REFERENCES "tag" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "fk_entity_sprite" FOREIGN KEY ("sprite_key") REFERENCES "sprite" ("key") ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT "fk_entity_world" FOREIGN KEY ("world_id") REFERENCES "world" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT "fk_entity_position" FOREIGN KEY ("position_id") REFERENCES "position" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT "fk_entity_rotation" FOREIGN KEY ("rotation_id") REFERENCES "rotation" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT "fk_entity_tag" FOREIGN KEY ("tag_id") REFERENCES "tag" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT "fk_entity_sprite" FOREIGN KEY ("sprite_key") REFERENCES "sprite" ("key") ON DELETE NO ACTION ON UPDATE NO ACTION
 );
+CREATE TRIGGER "trigger_entity_delete"
+BEFORE DELETE
+ON "entity"
+FOR EACH ROW
+begin
+	delete from position where id = old.position_id;
+	delete from rotation where id = old.rotation_id;
+	delete from tag where id = old.tag_id;
+end;
 
 CREATE TABLE "position" (
   "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +65,15 @@ CREATE TABLE "tag" (
   "enemy" integer NOT NULL DEFAULT 0
 );
 
+CREATE TABLE "tags" (
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "name" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX "tags_name_unique"
+ON "tags" (
+  "name"
+);
+
 CREATE TABLE "world" (
   "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
   "label" TEXT NOT NULL,
@@ -61,4 +84,11 @@ CREATE UNIQUE INDEX "world_label_unique"
 ON "world" (
   "label"
 );
+CREATE TRIGGER "trigger_world_delete"
+BEFORE DELETE
+ON "world"
+FOR EACH ROW
+begin
+	delete from entity where world_id = old.id;
+end;
 

@@ -298,127 +298,6 @@
           },
           {
             "objectType": "Table_SQLITE",
-            "name": "world",
-            "autoIncrement": 0,
-            "isWithoutRowID": false,
-            "oldName": "",
-            "rootPage": 0,
-            "sql": "",
-            "hasIndexes": false,
-            "hasTriggers": false,
-            "hasAutoIncrementInDB": false,
-            "fields": [
-              {
-                "objectType": "TableField_SQLITE",
-                "name": "id",
-                "type": "integer",
-                "size": -2147483648,
-                "scale": -2147483648,
-                "isNullable": "No",
-                "defaultValue": "",
-                "defaultValueType": "Others",
-                "collate": "",
-                "notNullOnConflict": "None",
-                "isAutoIncrement": true,
-                "generatedType": "None",
-                "generatedAlwaysAsValue": "",
-                "oldName": "id"
-              },
-              {
-                "objectType": "TableField_SQLITE",
-                "name": "label",
-                "type": "TEXT",
-                "size": -2147483648,
-                "scale": -2147483648,
-                "isNullable": "No",
-                "defaultValue": "",
-                "defaultValueType": "Others",
-                "collate": "",
-                "notNullOnConflict": "None",
-                "isAutoIncrement": false,
-                "generatedType": "None",
-                "generatedAlwaysAsValue": "",
-                "oldName": "label"
-              },
-              {
-                "objectType": "TableField_SQLITE",
-                "name": "width",
-                "type": "integer",
-                "size": -2147483648,
-                "scale": -2147483648,
-                "isNullable": "No",
-                "defaultValue": "",
-                "defaultValueType": "Others",
-                "collate": "",
-                "notNullOnConflict": "None",
-                "isAutoIncrement": false,
-                "generatedType": "None",
-                "generatedAlwaysAsValue": "",
-                "oldName": "width"
-              },
-              {
-                "objectType": "TableField_SQLITE",
-                "name": "height",
-                "type": "integer",
-                "size": -2147483648,
-                "scale": -2147483648,
-                "isNullable": "No",
-                "defaultValue": "",
-                "defaultValueType": "Others",
-                "collate": "",
-                "notNullOnConflict": "None",
-                "isAutoIncrement": false,
-                "generatedType": "None",
-                "generatedAlwaysAsValue": "",
-                "oldName": "height"
-              }
-            ],
-            "indexes": [
-              {
-                "objectType": "Index_SQLITE",
-                "name": "world_label_unique",
-                "isUnique": true,
-                "oldName": "world_label_unique",
-                "tableName": "world",
-                "isAutoIndex": false,
-                "rootPage": 0,
-                "onConflict": "None",
-                "fields": [
-                  {
-                    "objectType": "IndexField_SQLITE",
-                    "name": "label",
-                    "collate": "",
-                    "order": "Default",
-                    "oldName": ""
-                  }
-                ]
-              }
-            ],
-            "primaryKey": {
-              "objectType": "PrimaryKey_SQLITE",
-              "name": "",
-              "fields": [
-                "id"
-              ],
-              "indexFields": [
-                {
-                  "objectType": "IndexField_SQLITE",
-                  "name": "id",
-                  "collate": "",
-                  "order": "Default",
-                  "oldName": ""
-                }
-              ],
-              "onConflict": "None",
-              "oldName": ""
-            },
-            "foreignKeys": [],
-            "uniques": [],
-            "checks": [],
-            "triggers": []
-          },
-          {
-            "objectType": "Table_SQLITE",
             "name": "tag",
             "autoIncrement": 0,
             "isWithoutRowID": false,
@@ -495,6 +374,95 @@
               }
             ],
             "indexes": [],
+            "primaryKey": {
+              "objectType": "PrimaryKey_SQLITE",
+              "name": "",
+              "fields": [
+                "id"
+              ],
+              "indexFields": [
+                {
+                  "objectType": "IndexField_SQLITE",
+                  "name": "id",
+                  "collate": "",
+                  "order": "Default",
+                  "oldName": ""
+                }
+              ],
+              "onConflict": "None",
+              "oldName": ""
+            },
+            "foreignKeys": [],
+            "uniques": [],
+            "checks": [],
+            "triggers": []
+          },
+          {
+            "objectType": "Table_SQLITE",
+            "name": "tags",
+            "autoIncrement": 0,
+            "isWithoutRowID": false,
+            "oldName": "",
+            "rootPage": 0,
+            "sql": "",
+            "hasIndexes": false,
+            "hasTriggers": false,
+            "hasAutoIncrementInDB": false,
+            "fields": [
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "id",
+                "type": "INTEGER",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": true,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "id"
+              },
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "name",
+                "type": "TEXT",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": false,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "name"
+              }
+            ],
+            "indexes": [
+              {
+                "objectType": "Index_SQLITE",
+                "name": "tags_name_unique",
+                "isUnique": true,
+                "oldName": "tags_name_unique",
+                "tableName": "tags",
+                "isAutoIndex": false,
+                "rootPage": 0,
+                "onConflict": "None",
+                "fields": [
+                  {
+                    "objectType": "IndexField_SQLITE",
+                    "name": "name",
+                    "collate": "",
+                    "order": "Default",
+                    "oldName": ""
+                  }
+                ]
+              }
+            ],
             "primaryKey": {
               "objectType": "PrimaryKey_SQLITE",
               "name": "",
@@ -658,8 +626,8 @@
                 "referencedFields": [
                   "id"
                 ],
-                "onDelete": "CASCADE",
-                "onUpdate": "CASCADE",
+                "onDelete": "NO ACTION",
+                "onUpdate": "NO ACTION",
                 "isDeferred": false,
                 "sourceCardinality": "NoneRelationship",
                 "targetCardinality": "NoneRelationship",
@@ -676,8 +644,8 @@
                 "referencedFields": [
                   "id"
                 ],
-                "onDelete": "CASCADE",
-                "onUpdate": "CASCADE",
+                "onDelete": "NO ACTION",
+                "onUpdate": "NO ACTION",
                 "isDeferred": false,
                 "sourceCardinality": "NoneRelationship",
                 "targetCardinality": "NoneRelationship",
@@ -694,8 +662,8 @@
                 "referencedFields": [
                   "id"
                 ],
-                "onDelete": "CASCADE",
-                "onUpdate": "CASCADE",
+                "onDelete": "NO ACTION",
+                "onUpdate": "NO ACTION",
                 "isDeferred": false,
                 "sourceCardinality": "NoneRelationship",
                 "targetCardinality": "NoneRelationship",
@@ -712,8 +680,8 @@
                 "referencedFields": [
                   "id"
                 ],
-                "onDelete": "CASCADE",
-                "onUpdate": "CASCADE",
+                "onDelete": "NO ACTION",
+                "onUpdate": "NO ACTION",
                 "isDeferred": false,
                 "sourceCardinality": "NoneRelationship",
                 "targetCardinality": "NoneRelationship",
@@ -730,8 +698,8 @@
                 "referencedFields": [
                   "key"
                 ],
-                "onDelete": "CASCADE",
-                "onUpdate": "CASCADE",
+                "onDelete": "NO ACTION",
+                "onUpdate": "NO ACTION",
                 "isDeferred": false,
                 "sourceCardinality": "NoneRelationship",
                 "targetCardinality": "NoneRelationship",
@@ -740,7 +708,156 @@
             ],
             "uniques": [],
             "checks": [],
-            "triggers": []
+            "triggers": [
+              {
+                "objectType": "Trigger_SQLITE",
+                "name": "trigger_entity_delete",
+                "type": "Table",
+                "fire": "Before",
+                "event": "Delete",
+                "condition": "",
+                "definition": "begin\r\n\tdelete from position where id = old.position_id;\r\n\tdelete from rotation where id = old.rotation_id;\r\n\tdelete from tag where id = old.tag_id;\r\nend",
+                "isForEachRow": true,
+                "columns": [],
+                "oldName": "trigger_entity_delete",
+                "objectName": "entity"
+              }
+            ]
+          },
+          {
+            "objectType": "Table_SQLITE",
+            "name": "world",
+            "autoIncrement": 0,
+            "isWithoutRowID": false,
+            "oldName": "",
+            "rootPage": 0,
+            "sql": "",
+            "hasIndexes": false,
+            "hasTriggers": false,
+            "hasAutoIncrementInDB": false,
+            "fields": [
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "id",
+                "type": "integer",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": true,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "id"
+              },
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "label",
+                "type": "TEXT",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": false,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "label"
+              },
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "width",
+                "type": "integer",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": false,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "width"
+              },
+              {
+                "objectType": "TableField_SQLITE",
+                "name": "height",
+                "type": "integer",
+                "size": -2147483648,
+                "scale": -2147483648,
+                "isNullable": "No",
+                "defaultValue": "",
+                "defaultValueType": "Others",
+                "collate": "",
+                "notNullOnConflict": "None",
+                "isAutoIncrement": false,
+                "generatedType": "None",
+                "generatedAlwaysAsValue": "",
+                "oldName": "height"
+              }
+            ],
+            "indexes": [
+              {
+                "objectType": "Index_SQLITE",
+                "name": "world_label_unique",
+                "isUnique": true,
+                "oldName": "world_label_unique",
+                "tableName": "world",
+                "isAutoIndex": false,
+                "rootPage": 0,
+                "onConflict": "None",
+                "fields": [
+                  {
+                    "objectType": "IndexField_SQLITE",
+                    "name": "label",
+                    "collate": "",
+                    "order": "Default",
+                    "oldName": ""
+                  }
+                ]
+              }
+            ],
+            "primaryKey": {
+              "objectType": "PrimaryKey_SQLITE",
+              "name": "",
+              "fields": [
+                "id"
+              ],
+              "indexFields": [
+                {
+                  "objectType": "IndexField_SQLITE",
+                  "name": "id",
+                  "collate": "",
+                  "order": "Default",
+                  "oldName": ""
+                }
+              ],
+              "onConflict": "None",
+              "oldName": ""
+            },
+            "foreignKeys": [],
+            "uniques": [],
+            "checks": [],
+            "triggers": [
+              {
+                "objectType": "Trigger_SQLITE",
+                "name": "trigger_world_delete",
+                "type": "Table",
+                "fire": "Before",
+                "event": "Delete",
+                "condition": "",
+                "definition": "begin\r\n\tdelete from entity where world_id = old.id;\r\nend",
+                "isForEachRow": true,
+                "columns": [],
+                "oldName": "trigger_world_delete",
+                "objectName": "world"
+              }
+            ]
           }
         ],
         "views": []
@@ -849,6 +966,22 @@
           "y": 370,
           "width": 200,
           "height": 200,
+          "isBold": false,
+          "titleColor": {
+            "r": 55,
+            "g": 131,
+            "b": 192,
+            "a": 1
+          }
+        },
+        {
+          "type": "table",
+          "schemaName": "main",
+          "tableName": "tags",
+          "x": 960,
+          "y": 600,
+          "width": 200,
+          "height": 90,
           "isBold": false,
           "titleColor": {
             "r": 55,
