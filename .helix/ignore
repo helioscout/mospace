@@ -1,3 +1,5 @@
 assets/
-*.sublime-project
-*.sublime-workspace
+bin/
+pics/
+*.db
+db/*.ndm2

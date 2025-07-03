@@ -12,12 +12,12 @@
 #include "sprites.c"
 #include "helpers.c"
 
-static int sql_sprites(void *data, int count, char **fields, char **cols){
+static int sql_sprites([[maybe_unused]] void *data, int count, char **fields, char **cols){
 	char *key;
 	char *label;
 	char *file_name;
 	
-	for (size_t i = 0; i < count; i++) {
+	for (size_t i = 0; i < (size_t)count; i++) {
 		if (strcmp(cols[i], "key") == 0) key = fields[i];
 		else if (strcmp(cols[i], "label") == 0) label = fields[i];
 		else if (strcmp(cols[i], "file_name") == 0) file_name = fields[i];

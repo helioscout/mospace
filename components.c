@@ -1,7 +1,6 @@
 #pragma once
 
 #include <time.h>
-#include <stdbool.h>
 
 #include <raylib.h>
 #include <box2d/box2d.h>

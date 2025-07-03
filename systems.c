@@ -106,13 +106,13 @@ void create(ecs_iter_t *iter) {
 
 void generate(ecs_iter_t *iter) {
 	const Position *pos = ecs_field(iter, Position, 0);
-	const Rotation *rot  = ecs_field(iter, Rotation, 1);
+	[[maybe_unused]] const Rotation *rot  = ecs_field(iter, Rotation, 1);
 	const Size *size = ecs_field(iter, Size, 2);
 	const Center *center = ecs_field(iter, Center, 3);
 	Handle *handle = ecs_field(iter, Handle, 4);
 	Space *space = ecs_field(iter, Space, 7);
 
-	for (size_t i = 0; i < iter->count; i++) {
+	for (size_t i = 0; i < (size_t)iter->count; i++) {
 		b2BodyDef body_def = b2DefaultBodyDef();
 		body_def.userData = user_data(iter->entities[i]);
 		body_def.type = b2_dynamicBody;
@@ -154,7 +154,7 @@ void control(ecs_iter_t *iter) {
 	Actions *actions = ecs_field(iter, Actions, 0);
 	GameState *state = ecs_field(iter, GameState, 2);
 
-	for (size_t i = 0; i < iter->count; i++) {
+	for (size_t i = 0; i < (size_t)iter->count; i++) {
 		if (state->screen == Playing) {
 			actions[i].actions = Nothing;
 			
@@ -200,7 +200,7 @@ void actions(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 5);
 
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			Action action = actions[i].actions;
 			b2BodyId body_id = handle[i].body_id;
 
@@ -273,7 +273,7 @@ void physics(ecs_iter_t *iter) {
 
 		b2ContactEvents events = b2World_GetContactEvents(space->world_id);
 
-		for (size_t j = 0; j < events.beginCount; j++) {
+		for (size_t j = 0; j < (size_t)events.beginCount; j++) {
 			b2ContactBeginTouchEvent *event = events.beginEvents + j;
 			b2BodyId body_id_a = b2Shape_GetBody(event->shapeIdA);
 			b2BodyId body_id_b = b2Shape_GetBody(event->shapeIdB);
@@ -299,7 +299,7 @@ void transformation(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 5);
 	
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			b2Vec2 position = b2Body_GetPosition(handle[i].body_id);
 			b2Rot rotation = b2Body_GetRotation(handle[i].body_id);
 
@@ -339,7 +339,7 @@ void draw(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 6);
 	
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			if (rot[i].angle == 0.0f) {
 				DrawTexture(sprite[i].texture, pos[i].x, pos[i].y, WHITE);
 			}
@@ -396,7 +396,7 @@ void debug(ecs_iter_t *iter) {
 	// printf("debug\n");
 }
 
-b2BodyId bullet_b_new(ecs_world_t *world, b2WorldId world_id, ecs_entity_t bullet,
+b2BodyId bullet_b_new([[maybe_unused]] ecs_world_t *world, b2WorldId world_id, ecs_entity_t bullet,
     Point *pos, sprite_t *sprite, const Rotation *rot) {
 	b2BodyDef body_def = b2DefaultBodyDef();
 	body_def.userData = user_data(bullet);
@@ -453,7 +453,7 @@ void shooting(ecs_iter_t *iter) {
 	Space *space = ecs_field(iter, Space, 7);
 
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			if (actions[i].actions & Shoot && shot_allowed(weapon[i].shot)) {
 				switch (weapon[i].kind) {
 					case OneBullet: {
@@ -502,14 +502,14 @@ void shooting(ecs_iter_t *iter) {
 void collisions(ecs_iter_t *iter) {
 	ecs_world_t *world = iter->world;
 
-	const Collision *collision = ecs_field(iter, Collision, 0);
+	[[maybe_unused]] const Collision *collision = ecs_field(iter, Collision, 0);
 	const Handle *handle = ecs_field(iter, Handle, 1);
 	const Position *pos = ecs_field(iter, Position, 2);
 	const Center *center = ecs_field(iter, Center, 3);
 	GameState *state = ecs_field(iter, GameState, 5);
 	
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			// If the entity is bullet.
 			if (ecs_field_is_set(iter, 4)) {
 				free_user_data(handle[i].body_id);
@@ -536,7 +536,7 @@ void effects(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 3);
 	
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			// Of the entity is Spark.
 			if (ecs_field_is_set(iter, 2)) {
 				a[i].frame++;
@@ -573,7 +573,7 @@ void cleaning(ecs_iter_t *iter) {
 	};
 
 	if (state->screen == Playing) {
-		for (size_t i = 0; i < iter->count; i++) {
+		for (size_t i = 0; i < (size_t)iter->count; i++) {
 			// Of the entity is Bullet.
 			if (ecs_field_is_set(iter, 3)) {
 				if (is_outside_of_rect(&pos[i], &size[i], &rect)) {
@@ -608,7 +608,7 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnStart))
 		}),
 		.query.terms = {
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = load
 	});
@@ -619,7 +619,7 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnStart))
 		}),
 		.query.terms = {
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = create
 	});
@@ -637,7 +637,7 @@ systems_t register_systems(ecs_world_t *world) {
 			{ .id = ecs_id(Handle),	  .inout = EcsOut },
 			{ .id = ecs_id(Player),	  .inout = EcsInOutNone, .oper = EcsOptional },
 			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone, .oper = EcsOptional },
-			{ ecs_id(Space), .src = ecs_id(Space) }
+			{ .id = ecs_id(Space),    .src.id = ecs_id(Space) }
 		},
 		.callback = generate
 	});
@@ -648,9 +648,9 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Actions), .inout = EcsOut },
-			{ .id = ecs_id(Player),	 .inout = EcsInOutNone },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(Actions),   .inout = EcsOut },
+			{ .id = ecs_id(Player),	   .inout = EcsInOutNone },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = control
 	});
@@ -661,12 +661,12 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Handle),  .inout = EcsIn },
-			{ .id = ecs_id(Actions), .inout = EcsIn },
-			{ .id = ecs_id(Weapon),  .inout = EcsOut },
-			{ .id = ecs_id(Ship),    .inout = EcsOut },
-			{ .id = ecs_id(Player),	 .inout = EcsInOutNone },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(Handle),    .inout = EcsIn },
+			{ .id = ecs_id(Actions),   .inout = EcsIn },
+			{ .id = ecs_id(Weapon),    .inout = EcsOut },
+			{ .id = ecs_id(Ship),      .inout = EcsOut },
+			{ .id = ecs_id(Player),	   .inout = EcsInOutNone },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = actions
 	});
@@ -677,8 +677,8 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ ecs_id(GameState), .src = ecs_id(GameState) },
-			{ ecs_id(Space),	 .src = ecs_id(Space) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(Space),	   .src.id = ecs_id(Space) }
 		},
 		.callback = physics
 	});
@@ -689,12 +689,12 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Handle),   .inout = EcsIn },
-			{ .id = ecs_id(Position), .inout = EcsInOut },
-			{ .id = ecs_id(Rotation), .inout = EcsOut },
-			{ .id = ecs_id(Center),   .inout = EcsIn },
-			{ .id = ecs_id(Player),	  .inout = EcsInOutNone, .oper = EcsOptional },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(Handle),    .inout = EcsIn },
+			{ .id = ecs_id(Position),  .inout = EcsInOut },
+			{ .id = ecs_id(Rotation),  .inout = EcsOut },
+			{ .id = ecs_id(Center),    .inout = EcsIn },
+			{ .id = ecs_id(Player),	   .inout = EcsInOutNone, .oper = EcsOptional },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = transformation
 	});
@@ -705,7 +705,7 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = camera
 	});
@@ -716,13 +716,13 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Position), .inout = EcsIn },
-			{ .id = ecs_id(Rotation), .inout = EcsIn },
-			{ .id = ecs_id(Sprite),	  .inout = EcsIn },
-			{ .id = ecs_id(Center),   .inout = EcsIn },
-			{ .id = ecs_id(Size),	  .inout = EcsIn },
-			{ .id = ecs_id(Ship),	  .inout = EcsInOut, .oper = EcsOptional },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(Position),  .inout = EcsIn },
+			{ .id = ecs_id(Rotation),  .inout = EcsIn },
+			{ .id = ecs_id(Sprite),	   .inout = EcsIn },
+			{ .id = ecs_id(Center),    .inout = EcsIn },
+			{ .id = ecs_id(Size),	   .inout = EcsIn },
+			{ .id = ecs_id(Ship),	   .inout = EcsInOut, .oper = EcsOptional },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = draw
 	});
@@ -733,8 +733,8 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ ecs_id(GameState), .src = ecs_id(GameState) },
-			{ ecs_id(Space),	 .src = ecs_id(Space) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(Space),	   .src.id = ecs_id(Space) }
 		},
 		.callback = debug
 	});
@@ -745,14 +745,14 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Position), .inout = EcsIn },
-			{ .id = ecs_id(Center),   .inout = EcsIn },
-			{ .id = ecs_id(Rotation), .inout = EcsIn },
-			{ .id = ecs_id(Size),	  .inout = EcsIn },
-			{ .id = ecs_id(Weapon),	  .inout = EcsInOut },
-			{ .id = ecs_id(Actions),  .inout = EcsIn },
-			{ ecs_id(GameState), .src = ecs_id(GameState) },
-			{ ecs_id(Space),	 .src = ecs_id(Space) }
+			{ .id = ecs_id(Position),  .inout = EcsIn },
+			{ .id = ecs_id(Center),    .inout = EcsIn },
+			{ .id = ecs_id(Rotation),  .inout = EcsIn },
+			{ .id = ecs_id(Size),	   .inout = EcsIn },
+			{ .id = ecs_id(Weapon),	   .inout = EcsInOut },
+			{ .id = ecs_id(Actions),   .inout = EcsIn },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(Space),	   .src.id = ecs_id(Space) }
 		},
 		.callback = shooting
 	});
@@ -768,7 +768,7 @@ systems_t register_systems(ecs_world_t *world) {
 			{ .id = ecs_id(Position),  .inout = EcsIn },
 			{ .id = ecs_id(Center),    .inout = EcsIn },
 			{ .id = ecs_id(Bullet),	   .inout = EcsInOutNone, .oper = EcsOptional },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = collisions
 	});
@@ -782,7 +782,7 @@ systems_t register_systems(ecs_world_t *world) {
 			{ .id = ecs_id(Position),  .inout = EcsIn },
 			{ .id = ecs_id(Animation), .inout = EcsInOut },
 			{ .id = ecs_id(Spark),	   .inout = EcsInOutNone, .oper = EcsOptional },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = effects
 	});
@@ -793,11 +793,11 @@ systems_t register_systems(ecs_world_t *world) {
 			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Position), .inout = EcsIn },
-			{ .id = ecs_id(Size),	  .inout = EcsIn },
-			{ .id = ecs_id(Handle),	  .inout = EcsIn },
-			{ .id = ecs_id(Bullet),	  .inout = EcsInOutNone, .oper = EcsOptional },
-			{ ecs_id(GameState), .src = ecs_id(GameState) }
+			{ .id = ecs_id(Position),  .inout = EcsIn },
+			{ .id = ecs_id(Size),	   .inout = EcsIn },
+			{ .id = ecs_id(Handle),	   .inout = EcsIn },
+			{ .id = ecs_id(Bullet),	   .inout = EcsInOutNone, .oper = EcsOptional },
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = cleaning
 	});
@@ -807,7 +807,7 @@ systems_t register_systems(ecs_world_t *world) {
 			.name = "destroy"
 		}),
 		.query.terms = {
-			{ ecs_id(Space), .src = ecs_id(Space) }
+			{ .id = ecs_id(Space), .src.id = ecs_id(Space) }
 		},
 		.run = destroy,
 		.immediate = true

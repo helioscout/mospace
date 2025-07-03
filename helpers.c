@@ -51,12 +51,12 @@ b2Vec2 angle_to_vector(float angle, float scale) {
 	};
 }
 
-float degrees_to_radians(int degrees) {
-	return degrees * M_PI / 180;
+double degrees_to_radians(int degrees) {
+	return degrees * M_PI / 180.0;
 }
 
-float radians_to_degrees(float radians) {
-	return radians * 180 / M_PI;
+int radians_to_degrees(double radians) {
+	return lround(radians * 180.0 / M_PI);
 }
 
 ecs_entity_t* user_data(ecs_entity_t entity) {

@@ -27,7 +27,7 @@ struct sprites_t {
 
 struct hashmap *map_sprites;
 
-int sprite_compare(const void *a, const void *b, void *data) {
+int sprite_compare(const void *a, const void *b, [[maybe_unused]] void *data) {
 	const sprite_t *sa = a;
 	const sprite_t *sb = b;
 	return strcmp(sa->key, sb->key);
@@ -38,7 +38,7 @@ uint64_t sprite_hash(const void *item, uint64_t seed0, uint64_t seed1) {
 	return hashmap_sip(sprite->key, strlen(sprite->key), seed0, seed1);
 }
 
-void sprite_add(char* key, Image sheet, int x, int y, int width, int height) {
+void sprite_add(char* key, Image sheet, float x, float y, float width, float height) {
 	char *_key = malloc(strlen(key) + 1);
 	Image image = ImageFromImage(sheet, (Rectangle) { .x = x, .y = y, .width = width, .height = height });
 	Texture texture = LoadTextureFromImage(image);
@@ -100,11 +100,14 @@ void sprites_init() {
 	int thick_height = thick_sprite.height;
 
 	for (size_t i = 0; i < 9; i++) {
-		int dh = 45 - i * 5;
+		float dh = 45 - (float)i * 5;
 
-		Image thin = ImageFromImage(thin_sprite, (Rectangle) { .x = 0, .y = dh, .width = thin_width, .height = thin_height - dh });
-		Image medium = ImageFromImage(medium_sprite, (Rectangle) { .x = 0, .y = dh, .width = medium_width, .height = medium_height - dh });
-		Image thick = ImageFromImage(thick_sprite, (Rectangle) { .x = 0, .y = dh, .width = thick_width, .height = thick_height - dh });
+		Image thin = ImageFromImage(thin_sprite, (Rectangle) {
+		    .x = 0, .y = dh, .width = (float)thin_width, .height = (float)thin_height - dh });
+		Image medium = ImageFromImage(medium_sprite, (Rectangle) {
+		    .x = 0, .y = dh, .width = (float)medium_width, .height = (float)medium_height - dh });
+		Image thick = ImageFromImage(thick_sprite, (Rectangle) {
+		    .x = 0, .y = dh, .width = (float)thick_width, .height = (float)thick_height - dh });
 
 		sprites.trace_thin[i] = LoadTextureFromImage(thin);
 		sprites.trace_medium[i] = LoadTextureFromImage(medium);
