@@ -1,10 +1,13 @@
 #pragma once
 
 #include <time.h>
+#include <stdint.h>
 
 #include <raylib.h>
 #include <box2d/box2d.h>
 #include <flecs.h>
+
+#define WORLDS_MAX_COUNT 1000
 
 typedef enum Action : uint_fast64_t {
 	Nothing =		0b0000000000000000000000000000000000000000000000000000000000000000,
@@ -32,7 +35,11 @@ typedef enum Action : uint_fast64_t {
 	ZoomIn =		0b0000000000000000000000000000000000000000001000000000000000000000,
 	ZoomOut =		0b0000000000000000000000000000000000000000010000000000000000000000,
 	FullscreenOn =	0b0000000000000000000000000000000000000000100000000000000000000000,
-	FullscreenOff =	0b0000000000000000000000000000000000000001000000000000000000000000
+	FullscreenOff =	0b0000000000000000000000000000000000000001000000000000000000000000,
+	Resize =		0b0000000000000000000000000000000000000010000000000000000000000000,
+	LoadWorld =		0b0000000000000000000000000000000000000100000000000000000000000000,
+	ExitGame =		0b0000000000000000000000000000000000001000000000000000000000000000,
+	Escape =		0b0000000000000000000000000000000000010000000000000000000000000000
 } Action;
 
 typedef enum GameScreen {
@@ -74,7 +81,7 @@ typedef struct Center {
 } Center;
 
 typedef struct Rotation {
-	float angle;	// Rotation angle in radians.
+	double angle;	// Rotation angle in radians.
 } Rotation;
 
 typedef struct Sprite {
@@ -112,17 +119,53 @@ typedef struct Space {
 	b2DebugDraw debug_drawer;
 } Space;
 
+typedef struct world_t {
+	uint64_t id;
+	float width;
+	float height;
+	char* label;
+} world_t;
+
 typedef struct GameState {
 	Camera2D *camera;
 	GameScreen screen;
+	Action actions;
 	Vector2 position;
+	Vector2 size;				/*--< Current window size.    */
 	bool fullscren;
 	float zoom;
 	clock_t scaled;
+	bool loaded;				/*--< World loaded sign.       */
+	world_t* map;
 } GameState;
+
+typedef struct window_t {
+	Vector2 position;
+	Vector2 size;
+	Vector2 scroll;
+	bool minimized;
+	bool moving;
+	bool resizing;
+} window_t;
+
+typedef struct gui_menu_t {
+	bool worlds_editing;
+	int world_index;
+	uint64_t world_ids[WORLDS_MAX_COUNT];
+	char* world_labels[WORLDS_MAX_COUNT];
+	size_t worlds_count;
+} gui_menu_t;
+
+typedef struct GameGui GameGui;
+struct GameGui {
+	window_t* w_menu;
+	gui_menu_t* gui_menu;
+	void (*layout)(GameState*, GameGui*);
+};
 
 ECS_COMPONENT_DECLARE(Actions);
 ECS_COMPONENT_DECLARE(GameState);
+ECS_COMPONENT_DECLARE(GameGui);
 ECS_COMPONENT_DECLARE(Sprite);
 ECS_COMPONENT_DECLARE(Size);
 ECS_COMPONENT_DECLARE(Position);
@@ -138,11 +181,13 @@ ECS_COMPONENT_DECLARE(Space);
 ECS_TAG_DECLARE(Player);
 ECS_TAG_DECLARE(Bullet);
 ECS_TAG_DECLARE(Asteroid);
+ECS_TAG_DECLARE(Enemy);
 ECS_TAG_DECLARE(Spark);
 
 void register_components(ecs_world_t *world) {
 	ECS_COMPONENT_DEFINE(world, Actions);
 	ECS_COMPONENT_DEFINE(world, GameState);
+	ECS_COMPONENT_DEFINE(world, GameGui);
 	ECS_COMPONENT_DEFINE(world, Sprite);
 	ECS_COMPONENT_DEFINE(world, Size);
 	ECS_COMPONENT_DEFINE(world, Position);
@@ -158,5 +203,6 @@ void register_components(ecs_world_t *world) {
 	ECS_TAG_DEFINE(world, Player);
 	ECS_TAG_DEFINE(world, Bullet);
 	ECS_TAG_DEFINE(world, Asteroid);
+	ECS_TAG_DEFINE(world, Enemy);
 	ECS_TAG_DEFINE(world, Spark);
 }

@@ -11,6 +11,8 @@
 #include "components.c"
 #include "sprites.c"
 #include "helpers.c"
+#include "layout.c"
+#include "db.c"
 
 static int sql_sprites([[maybe_unused]] void *data, int count, char **fields, char **cols){
 	char *key;
@@ -46,13 +48,55 @@ void register_resources(ecs_world_t *world, Camera2D *camera) {
 	}
 
 	sqlite3_close(db);
+
+	window_t *w_menu = malloc(sizeof(window_t));
+	gui_menu_t *gui_menu = malloc(sizeof(gui_menu_t));
+	world_t *map = malloc(sizeof(world_t));
 	
+	*w_menu = (window_t) {
+		.position	= { .x = 10, .y = 10 },
+		.size		= { .x = 290, .y = 140 },
+		.minimized	= false,
+		.moving		= false,
+		.resizing	= false
+	};
+	
+	*gui_menu = (gui_menu_t) {
+		.worlds_editing = false,
+		.world_index    = 0,
+		.world_ids      = {},
+		.world_labels   = {},
+		.worlds_count   = 0
+	};
+
+	*map = (world_t) {
+		.id		  = 0,
+		.label	  = NULL,
+		.width	  = 0,
+		.height	  = 0
+	};
+
 	ecs_singleton_set(world, GameState, {
-	    .camera = camera,
-		.screen = Playing,
-		.position = (Vector2) { .x = DISPLAY_CENTER_X, .y = DISPLAY_CENTER_Y },
+	    .camera    = camera,
+		.screen    = Menu,
+		.actions   = Nothing,
+		.position  = (Vector2) { .x = DISPLAY_CENTER_X, .y = DISPLAY_CENTER_Y },
+		.size	   = (Vector2) { .x = DISPLAY_WIDTH, .y = DISPLAY_HEIGHT },
 		.fullscren = false,
-		.zoom = 1.0f,
-		.scaled = 0
+		.zoom      = 1.0f,
+		.scaled    = 0,
+		.loaded	   = false,
+		.map	   = map
 	});
+
+	GameGui *gui = malloc(sizeof(GameGui));
+	*gui = (GameGui) {
+		.w_menu	  = w_menu,
+		.gui_menu = gui_menu,
+		.layout   = gui_layout
+	};
+
+	ecs_set_id(world, ecs_id(GameGui), ecs_id(GameGui), sizeof(GameGui), gui);
+
+	load_worlds(gui);
 }

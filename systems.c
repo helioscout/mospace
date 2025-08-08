@@ -2,6 +2,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include <raylib.h>
@@ -12,17 +13,21 @@
 #include "sprites.c"
 #include "helpers.c"
 #include "debug.c"
+#include "gui.c"
+#include "db.c"
 
 typedef struct systems_t {
-	ecs_entity_t load;
-	ecs_entity_t create;
-	ecs_entity_t generate;
+	ecs_entity_t prepare;
 	ecs_entity_t control;
+	ecs_entity_t global_control;
 	ecs_entity_t actions;
+	ecs_entity_t global_actions;
 	ecs_entity_t physics;
 	ecs_entity_t transformation;
 	ecs_entity_t camera;
 	ecs_entity_t draw;
+	ecs_entity_t gui;
+	ecs_entity_t gui_actions;
 	ecs_entity_t debug;
 	ecs_entity_t shooting;
 	ecs_entity_t collisions;
@@ -31,63 +36,11 @@ typedef struct systems_t {
 	ecs_entity_t destroy;
 } systems_t;
 
-void load(ecs_iter_t *iter) {
+void prepare(ecs_iter_t *iter) {
 	ecs_world_t *world = iter->world;
 
-	sprite_t *sprite = sprite_get("player-ship-a-bw");
-	ecs_entity_t player = ecs_new(world);
-
-	Trace trace = (Trace) { .tint = 0 };
-
-	for (size_t i = 0; i < 10; i++) {
-		trace.texture[i] = sprites.trace_thin[i];
-		trace.width[i] = trace.texture[i].width;
-		trace.height[i] = trace.texture[i].height;
-	}
-
-	ecs_add_id(world, player, Player);
-	ecs_set(world, player, Sprite,		{ .texture = sprite->texture });
-	ecs_set(world, player, Size,		{ .width = sprite->width, .height = sprite->height });
-	ecs_set(world, player, Position,	{ .x = DISPLAY_CENTER_X - sprite->width / 2, .y = DISPLAY_CENTER_Y - sprite->height / 2 });
-	ecs_set(world, player, Center,		{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
-	ecs_set(world, player, Rotation,	{ .angle = 0.0f });
-	ecs_set(world, player, Weapon,		{ .kind = OneBullet, .shot = 0 });
-	ecs_set(world, player, Ship,		{ .speed = 50, .tracing = false, .trace = trace });
-	ecs_set(world, player, Actions,		{ .actions = Nothing });
-	ecs_set(world, player, Handle,		{ .body_id = b2_nullBodyId });
-	
-	for (size_t i = 0; i < 4; i ++) {
-		int x, y;
-
-		switch (i) {
-			case 0: x = 150; y = 150; break;
-			case 1: x = 600; y = 150; break;
-			case 2: x = 200; y = 400; break;
-			case 3: x = 550; y = 400; break;
-		}
-		
-		sprite_t *sprite = sprite_get(i % 2 == 1 ? "asteroid-detailed-large-bw" : "asteroid-detailed-small-bw");
-		ecs_entity_t asteroid = ecs_new(world);
-
-		ecs_add_id(world, asteroid, Asteroid);
-		ecs_set(world, asteroid, Position,	{ .x = x, .y = y });
-		ecs_set(world, asteroid, Size,		{ .width = sprite->width, .height = sprite->height });
-		ecs_set(world, asteroid, Center,	{ .cx = sprite->width / 2, .cy = sprite->height / 2 });
-		ecs_set(world, asteroid, Rotation,	{ .angle = 0.0f });
-		ecs_set(world, asteroid, Sprite,	{ .texture = sprite->texture });
-		ecs_set(world, asteroid, Handle,	{ .body_id = b2_nullBodyId });
-	}
-
-	// printf("load\n");
-}
-
-void create(ecs_iter_t *iter) {
-	ecs_world_t *world = iter->world;
-	
-	b2WorldDef world_def = b2DefaultWorldDef();
-	world_def.gravity = (b2Vec2) { 0.0f, 0.0f };
-
-	b2WorldId world_id = b2CreateWorld(&world_def);
+	GameState *state = ecs_field(iter, GameState, 0);
+	GameGui *gui = ecs_field(iter, GameGui, 1);
 
 	b2DebugDraw	debug_drawer = b2DefaultDebugDraw();
 	debug_drawer.drawShapes = true;
@@ -97,57 +50,11 @@ void create(ecs_iter_t *iter) {
 	debug_drawer.DrawPointFcn = draw_point;
 
 	ecs_singleton_set(world, Space, {
-		.world_id = world_id,
+		.world_id = b2_nullWorldId,
 		.debug_drawer = debug_drawer
 	});
 
-	// printf("create\n");
-}
-
-void generate(ecs_iter_t *iter) {
-	const Position *pos = ecs_field(iter, Position, 0);
-	[[maybe_unused]] const Rotation *rot  = ecs_field(iter, Rotation, 1);
-	const Size *size = ecs_field(iter, Size, 2);
-	const Center *center = ecs_field(iter, Center, 3);
-	Handle *handle = ecs_field(iter, Handle, 4);
-	Space *space = ecs_field(iter, Space, 7);
-
-	for (size_t i = 0; i < (size_t)iter->count; i++) {
-		b2BodyDef body_def = b2DefaultBodyDef();
-		body_def.userData = user_data(iter->entities[i]);
-		body_def.type = b2_dynamicBody;
-		body_def.position = (b2Vec2) {
-			.x = pixels_to_meters(pos[i].x + center[i].cx),
-			.y = pixels_to_meters(pos[i].y + center[i].cy) };
-
-		b2BodyId body_id = b2CreateBody(space->world_id, &body_def);
-
-		handle[i].body_id = body_id;
-
-		b2Polygon dynamic_box = b2MakeBox(pixels_to_meters(size[i].width) / 2, pixels_to_meters(size[i].height) / 2);
-		b2ShapeDef shape_def = b2DefaultShapeDef();
-		shape_def.density = 1.0f;
-		shape_def.material.friction = 0.1f;
-		shape_def.enableContactEvents = true;
-
-		b2CreatePolygonShape(body_id, &shape_def, &dynamic_box);
-
-		// If the entity is player.
-		if (ecs_field_is_set(iter, 5)) {
-		}
-		
-		// If the entity is asteroid.
-		if (ecs_field_is_set(iter, 6)) {
-			b2MassData mass_data;
-			mass_data.mass = 100.0f;
-			mass_data.center = (b2Vec2) { 0.0f, 0.0f };
-			mass_data.rotationalInertia = 50.0f;
-
-			b2Body_SetMassData(body_id, mass_data);
-		}
-	}
-
-	// printf("generate\n");
+	gui->layout(state, gui);
 }
 
 void control(ecs_iter_t *iter) {
@@ -180,28 +87,43 @@ void control(ecs_iter_t *iter) {
 			if (IsKeyDown(KEY_LEFT_CONTROL)) {
 				if (IsKeyDown(KEY_I)) actions[i].actions |= ZoomIn;
 				if (IsKeyDown(KEY_O)) actions[i].actions |= ZoomOut;
-
-				if (IsKeyPressed(KEY_F)) {
-					if (state->fullscren) actions[i].actions |= FullscreenOff;
-					else actions[i].actions |= FullscreenOn;
-				}
 			}
 		}
 	}
+}
 
-	// printf("control\n");
+void global_control(ecs_iter_t *iter) {
+	GameState *state = ecs_field(iter, GameState, 0);
+
+	state->actions = Nothing;
+
+	if (IsKeyDown(KEY_LEFT_CONTROL)) {
+		if (IsKeyPressed(KEY_F)) {
+			if (state->fullscren) state->actions |= FullscreenOff;
+			else state->actions |= FullscreenOn;
+		}
+	}
+
+	if (IsKeyPressed(KEY_ESCAPE)) state->actions |= Escape;
+
+	if (IsWindowResized()) {
+		state->size = (Vector2) { .x = GetScreenWidth(), .y = GetScreenHeight() };
+		state->actions |= Resize;
+	}
 }
 
 void actions(ecs_iter_t *iter) {
-	const Handle *handle = ecs_field(iter, Handle, 0);
+	const Handle *handle   = ecs_field(iter, Handle, 0);
 	const Actions *actions = ecs_field(iter, Actions, 1);
-	Weapon *weapon  = ecs_field(iter, Weapon, 2);
-	Ship *ship = ecs_field(iter, Ship, 3);
-	GameState *state = ecs_field(iter, GameState, 5);
+	Weapon *weapon		   = ecs_field(iter, Weapon, 2);
+	Ship *ship			   = ecs_field(iter, Ship, 3);
+	GameState *state	   = ecs_field(iter, GameState, 5);
+	GameGui *gui		   = ecs_field(iter, GameGui, 6);
 
-	if (state->screen == Playing) {
-		for (size_t i = 0; i < (size_t)iter->count; i++) {
-			Action action = actions[i].actions;
+	for (size_t i = 0; i < (size_t)iter->count; i++) {
+		Action action = actions[i].actions;
+		
+		if (state->screen == Playing) {
 			b2BodyId body_id = handle[i].body_id;
 
 			float impulse = 3.90625 * b2Body_GetMass(body_id);
@@ -225,8 +147,6 @@ void actions(ecs_iter_t *iter) {
 			if (action & MaximizeSpeed) ship[i].speed = 500;
 			if (action & DecreaseSpeed && ship[i].speed > 0) ship[i].speed--;
 			if (action & IncreaseSpeed && ship[i].speed < 50) ship[i].speed++;
-			if (action & FullscreenOn)  { ToggleBorderlessWindowed(); state->fullscren = true; }
-			if (action & FullscreenOff) { ToggleBorderlessWindowed(); state->fullscren = false; }
 			
 			if (action & ZoomIn && state->zoom < 2.0 && zoom_allowed(state->scaled)) {
 				state->zoom += 0.1;
@@ -258,8 +178,44 @@ void actions(ecs_iter_t *iter) {
 			ship[i].tracing = action & ( MoveForward | MoveBackward | MoveLeft | MoveRight );
 		}
 	}
+}
 
-	// printf("actions\n");
+void global_actions(ecs_iter_t *iter) {
+	GameState *state = ecs_field(iter, GameState, 0);
+	GameGui *gui	 = ecs_field(iter, GameGui, 1);
+
+	if (state->actions & FullscreenOn)  {
+		ToggleBorderlessWindowed();
+	
+		state->fullscren = true;
+		state->size = (Vector2) { .x = GetScreenWidth(), .y = GetScreenHeight() };
+	
+		if (state->screen == Menu) gui->layout(state, gui);
+	}
+
+	if (state->actions & FullscreenOff) {
+		ToggleBorderlessWindowed();
+
+		state->fullscren = false;
+		state->size = (Vector2) { .x = GetScreenWidth(), .y = GetScreenHeight() };
+	
+		if (state->screen == Menu) gui->layout(state, gui);
+	}
+
+	if (state->actions & Resize && state->screen == Menu) {
+		gui->layout(state, gui);
+	}
+
+	if (state->actions & Escape) {
+		if (state->screen == Playing) {
+			state->position = (Vector2) { .x = GetScreenWidth() / 2.0f, .y = GetScreenHeight() / 2.0f };
+			state->screen = Menu;
+
+			/* We need to adjust gui position to current screen size. */
+			gui->layout(state, gui);
+		}
+		else if (state->screen == Menu && state->loaded) state->screen = Playing;
+	}
 }
 
 void physics(ecs_iter_t *iter) {
@@ -287,8 +243,6 @@ void physics(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("physics\n");
 }
 
 void transformation(ecs_iter_t *iter) {
@@ -313,20 +267,16 @@ void transformation(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("transformation\n");
 }
 
 void camera(ecs_iter_t *iter) {
 	GameState *state = ecs_field(iter, GameState, 0);
 	
-	if (state->screen == Playing) {
-		state->camera->zoom = state->zoom;
-		state->camera->target = state->position;
-		state->camera->offset = (Vector2) { .x = GetScreenWidth() / 2.0f, .y = GetScreenHeight() / 2.0f };
-	}
-
-	// printf("camera\n");
+	state->camera->zoom   = state->screen == Playing ? state->zoom : 1.0f;
+	state->camera->target = state->screen == Playing ? state->position : (Vector2) { .x = 0.0f, .y = 0.0f };
+	state->camera->offset = state->screen == Playing
+		? (Vector2) { .x = GetScreenWidth() / 2.0f, .y = GetScreenHeight() / 2.0f }
+		: (Vector2) { .x = 0.0f, .y = 0.0f };
 }
 
 void draw(ecs_iter_t *iter) {
@@ -381,8 +331,48 @@ void draw(ecs_iter_t *iter) {
 			}
 		}
 	}
+}
 
-	// printf("draw\n");
+void gui(ecs_iter_t *iter) {
+	GameState *state = ecs_field(iter, GameState, 0);
+	GameGui *gui = ecs_field(iter, GameGui, 1);
+
+	gui_draw(state, gui);
+}
+
+void gui_actions(ecs_iter_t *iter) {
+	ecs_world_t *world = iter->world;
+
+	GameState *state = ecs_field(iter, GameState, 0);
+	GameGui *gui = ecs_field(iter, GameGui, 1);
+	Space *space = ecs_field(iter, Space, 2);
+
+	if (state->actions & LoadWorld) {
+		uint64_t id = gui->gui_menu->world_ids[gui->gui_menu->world_index];
+		/* Clear all user data attched to rigid bodies. */
+		clear_user_data(world);
+		/* Clear all entities. */
+		ecs_iter_t iter = ecs_each(world, Position);
+
+		while (ecs_each_next(&iter)) {
+			for (size_t i = 0; i < (size_t)iter.count; ++i) {
+				ecs_clear(world, iter.entities[i]);
+			}
+		}
+
+		/* Recreate physics world. */
+		if (B2_IS_NON_NULL(space->world_id)) b2DestroyWorld(space->world_id);
+
+		b2WorldDef world_def = b2DefaultWorldDef();
+		world_def.gravity = (b2Vec2) { 0.0f, 0.0f };
+
+		space->world_id = b2CreateWorld(&world_def);
+
+		load_world(state, world, space->world_id, id);
+
+		state->screen = Playing;
+		state->loaded = true;
+	} else if (state->actions & ExitGame) SHOULD_EXIT_GAME = true;
 }
 
 void debug(ecs_iter_t *iter) {
@@ -392,8 +382,6 @@ void debug(ecs_iter_t *iter) {
 	if (state->screen == Playing) {
 		b2World_Draw(space->world_id, &space->debug_drawer);
 	}
-
-	// printf("debug\n");
 }
 
 b2BodyId bullet_b_new([[maybe_unused]] ecs_world_t *world, b2WorldId world_id, ecs_entity_t bullet,
@@ -495,8 +483,6 @@ void shooting(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("shooting\n");
 }
 
 void collisions(ecs_iter_t *iter) {
@@ -524,8 +510,6 @@ void collisions(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("collisions\n");
 }
 
 void effects(ecs_iter_t *iter) {
@@ -550,8 +534,6 @@ void effects(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("effects\n");
 }
 
 void cleaning(ecs_iter_t *iter) {
@@ -584,62 +566,47 @@ void cleaning(ecs_iter_t *iter) {
 			}
 		}
 	}
-
-	// printf("cleaning\n");
 }
 
 void destroy(ecs_iter_t *iter) {
+	ecs_world_t *world = iter->world;
+
 	sprites_destroy();
 	
 	while (ecs_query_next(iter)) {
-		Space *space = ecs_field(iter, Space, 0);
-		
-		b2DestroyWorld(space->world_id);
-		space->world_id = b2_nullWorldId;
-	}
+		GameState *state = ecs_field(iter, GameState, 0);
+		GameGui *gui = ecs_field(iter, GameGui, 1);
+		Space *space = ecs_field(iter, Space, 2);
 
-	// printf("destroy");
+		if (B2_IS_NON_NULL(space->world_id)) {
+			clear_user_data(world);
+			b2DestroyWorld(space->world_id);
+			space->world_id = b2_nullWorldId;
+		}
+
+		for (size_t i = 0; i < gui->gui_menu->worlds_count; ++i) {
+			free(gui->gui_menu->world_labels[i]);
+		}
+
+		free(state->map->label);
+		free(state->map);
+
+		free(gui->w_menu);
+		free(gui->gui_menu);
+	}
 }
 
 systems_t register_systems(ecs_world_t *world) {
-	ecs_entity_t _load = ecs_system(world, {
+	ecs_entity_t _prepare = ecs_system(world, {
 		.entity = ecs_entity(world, {
-			.name = "load",
+			.name = "prepare",
 			.add = ecs_ids(ecs_dependson(EcsOnStart))
 		}),
 		.query.terms = {
-			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) }
 		},
-		.callback = load
-	});
-
-	ecs_entity_t _create = ecs_system(world, {
-		.entity = ecs_entity(world, {
-			.name = "create",
-			.add = ecs_ids(ecs_dependson(EcsOnStart))
-		}),
-		.query.terms = {
-			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
-		},
-		.callback = create
-	});
-
-	ecs_entity_t _generate = ecs_system(world, {
-		.entity = ecs_entity(world, {
-			.name = "generate",
-			.add = ecs_ids(ecs_dependson(EcsOnStart))
-		}),
-		.query.terms = {
-			{ .id = ecs_id(Position), .inout = EcsIn },
-			{ .id = ecs_id(Rotation), .inout = EcsIn },
-			{ .id = ecs_id(Size),	  .inout = EcsIn },
-			{ .id = ecs_id(Center),	  .inout = EcsIn },
-			{ .id = ecs_id(Handle),	  .inout = EcsOut },
-			{ .id = ecs_id(Player),	  .inout = EcsInOutNone, .oper = EcsOptional },
-			{ .id = ecs_id(Asteroid), .inout = EcsInOutNone, .oper = EcsOptional },
-			{ .id = ecs_id(Space),    .src.id = ecs_id(Space) }
-		},
-		.callback = generate
+		.callback = prepare
 	});
 
 	ecs_entity_t _control = ecs_system(world, {
@@ -655,6 +622,17 @@ systems_t register_systems(ecs_world_t *world) {
 		.callback = control
 	});
 
+	ecs_entity_t _global_control = ecs_system(world, {
+		.entity = ecs_entity(world, {
+			.name = "global_control",
+			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
+		}),
+		.query.terms = {
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
+		},
+		.callback = global_control
+	});
+
 	ecs_entity_t _actions = ecs_system(world, {
 		.entity = ecs_entity(world, {
 			.name = "actions",
@@ -666,11 +644,24 @@ systems_t register_systems(ecs_world_t *world) {
 			{ .id = ecs_id(Weapon),    .inout = EcsOut },
 			{ .id = ecs_id(Ship),      .inout = EcsOut },
 			{ .id = ecs_id(Player),	   .inout = EcsInOutNone },
-			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) }
 		},
 		.callback = actions
 	});
 	
+	ecs_entity_t _global_actions = ecs_system(world, {
+		.entity = ecs_entity(world, {
+			.name = "global_actions",
+			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
+		}),
+		.query.terms = {
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) }
+		},
+		.callback = global_actions
+	});
+
 	ecs_entity_t _physics = ecs_system(world, {
 		.entity = ecs_entity(world, {
 			.name = "physics",
@@ -725,6 +716,31 @@ systems_t register_systems(ecs_world_t *world) {
 			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) }
 		},
 		.callback = draw
+	});
+
+	ecs_entity_t _gui = ecs_system(world, {
+		.entity = ecs_entity(world, {
+			.name = "gui",
+			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
+		}),
+		.query.terms = {
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) }
+		},
+		.callback = gui
+	});
+
+	ecs_entity_t _gui_actions = ecs_system(world, {
+		.entity = ecs_entity(world, {
+			.name = "gui_actions",
+			.add = ecs_ids(ecs_dependson(EcsOnUpdate))
+		}),
+		.query.terms = {
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) },
+			{ .id = ecs_id(Space),	   .src.id = ecs_id(Space) }
+		},
+		.callback = gui_actions
 	});
 
 	ecs_entity_t _debug = ecs_system(world, {
@@ -807,22 +823,26 @@ systems_t register_systems(ecs_world_t *world) {
 			.name = "destroy"
 		}),
 		.query.terms = {
-			{ .id = ecs_id(Space), .src.id = ecs_id(Space) }
+			{ .id = ecs_id(GameState), .src.id = ecs_id(GameState) },
+			{ .id = ecs_id(GameGui),   .src.id = ecs_id(GameGui) },
+			{ .id = ecs_id(Space),     .src.id = ecs_id(Space) }
 		},
 		.run = destroy,
 		.immediate = true
 	});
 
 	return (systems_t) {
-		.load			= _load,
-		.create			= _create,
-		.generate		= _generate,
+		.prepare		= _prepare,
 		.control		= _control,
+		.global_control = _global_control,
 		.actions		= _actions,
+		.global_actions = _global_actions,
 		.physics		= _physics,
 		.transformation	= _transformation,
 		.camera			= _camera,
 		.draw			= _draw,
+		.gui			= _gui,
+		.gui_actions	= _gui_actions,
 		.debug			= _debug,
 		.shooting		= _shooting,
 		.collisions		= _collisions,

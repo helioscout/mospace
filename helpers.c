@@ -19,6 +19,8 @@ const int SUB_STEP_COUNT = 4;
 const int SHOT_INTERVAL = 100;			// Interval between shots in milliseconds.
 const int ZOOM_INTERVAL = 100;			// Interval between camera zoom in milliseconds.
 
+static bool SHOULD_EXIT_GAME = false;
+
 float pixels_to_meters(int pixels) { return pixels * SCALING_FACTOR; }
 int meters_to_pixels(float meters) { return (int)(meters / SCALING_FACTOR); }
 
@@ -71,6 +73,18 @@ void free_user_data(b2BodyId body_id) {
 	free(entity);
 }
 
+void clear_user_data(ecs_world_t *world) {
+	ecs_iter_t iter = ecs_each(world, Handle);
+
+	while (ecs_each_next(&iter)) {
+		const Handle *handle = ecs_field(&iter, Handle, 0);
+		
+		for (size_t i = 0; i < (size_t)iter.count; ++i) {
+			free_user_data(handle[i].body_id);
+		}
+	}
+}
+
 bool shot_allowed(clock_t shot_time) {
 	if (!shot_time) return true;
 
@@ -90,4 +104,8 @@ bool is_outside_of_rect(const Position *pos, const Size *size, const Rectangle *
 			pos->x > rect->x + rect->width  ||
 			pos->y + size->height < rect->y ||
 			pos->y > rect->y + rect->height;
+}
+
+int max(int a, int b) {
+	return a > b ? a : b;
 }
