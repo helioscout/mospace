@@ -12,7 +12,7 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 \
 **Dependencies**:\
 \
-~ [box2d](https://packages.msys2.org/base/mingw-w64-box2d): for game physics;
+~ [box2d](https://packages.msys2.org/base/mingw-w64-box2d): for game physics;\
 ~ [raylib](https://packages.msys2.org/base/mingw-w64-raylib): for graphics and user events;\
 ~ [raygui](https://github.com/raysan5/raygui): for immediate-mode gui;\
 ~ [flecs](https://packages.msys2.org/base/mingw-w64-flecs): fast entity component system;\
