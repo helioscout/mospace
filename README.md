@@ -18,9 +18,10 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 ~ [flecs](https://packages.msys2.org/base/mingw-w64-flecs): fast entity component system;\
 ~ [sqlite](https://packages.msys2.org/base/mingw-w64-sqlite3): for reading/writing to database;\
 ~ [hashmap](https://github.com/tidwall/hashmap.c.git): hash map implementation in C;\
-~ [kenney](http://kenney.nl): for assets;
+~ [kenney](http://kenney.nl): for assets;\
 \
-Implemented features:\
+**Implemented features:**\
+\
 ~ Moving forward, backward, left, right, angular.\
 ~ Extreme (fast) breaking (to full stop).\
 ~ Increasing/decreasing max speed.\
@@ -29,7 +30,8 @@ Implemented features:\
 ~ Impulses (for moving) calculates depending on ship mass.\
 ~ Bullet/asteroid contact (collision) animation.\
 \
-Control keys:\
+**Control keys:**\
+\
 ~ 1        - Change weapon to one bullet.\
 ~ 2        - Change weapon to two bullets.\
 ~ A        - Move left.\
@@ -47,7 +49,7 @@ Control keys:\
 ~ Ctrl+I   - Zoom in.\
 ~ Ctrl+O   - Zoom out.\
 ~ Ctrl+F   - Fullscreen on/off.\
-~ Esc      - Show menu (game pause) or back to game.
+~ Esc      - Show menu (game pause) or back to game.\
 \
 **Related projects:**\
 \
