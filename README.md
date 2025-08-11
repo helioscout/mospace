@@ -53,5 +53,5 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 \
 **Related projects:**\
 \
-[moeditor](https://git.sr.ht/~modevstudio/moeditor): worlds editor for space game;\
-[mocosmos](https://git.sr.ht/~modevstudio/mocosmos): simple space game crafted with rust, macroquad, rapier, bevy_ecs;
+[moeditor](https://git.sr.ht/~modevstudio/moeditor): worlds editor for space game;
+
