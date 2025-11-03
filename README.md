@@ -51,6 +51,9 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 ~ Ctrl+F   - Fullscreen on/off.\
 ~ Esc      - Show menu (game pause) or back to game.\
 \
+![](pics/play.mp4)
+<video src="pics/play.mp4" controls preload></video>
+\
 **Related projects:**\
 \
 [moeditor](https://git.sr.ht/~modevstudio/moeditor): worlds editor for space game;
