@@ -55,3 +55,5 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 \
 [moeditor](https://git.sr.ht/~modevstudio/moeditor): worlds editor for space game;
 
+[![Hits](https://hits.sh/sr.ht/~modevstudio/mospace.svg)](https://hits.sh/sr.ht/~modevstudio/mospace/)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/L3L81NPOT7)
