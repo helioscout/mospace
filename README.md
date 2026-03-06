@@ -31,25 +31,26 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 ~ Bullet/asteroid contact (collision) animation.\
 \
 **Control keys:**\
-\
-~ 1        - Change weapon to one bullet.\
-~ 2        - Change weapon to two bullets.\
-~ A        - Move left.\
-~ D        - Move right.\
-~ Up       - Move forward.\
-~ Down     - Move backward.\
-~ Left     - Turn left.\
-~ Right    - Turn right.\
-~ Minus    - Minimize speed.\
-~ Plus(=)  - Maximize speed.\
-~ Q        - Decrease speed (slowly).\
-~ E        - Increase speed (slowly).\
-~ Space    - Brake (extreme).\
-~ W        - Shoot.\
-~ Ctrl+I   - Zoom in.\
-~ Ctrl+O   - Zoom out.\
-~ Ctrl+F   - Fullscreen on/off.\
-~ Esc      - Show menu (game pause) or back to game.\
+| Key      | Description                             |
+|----------|-----------------------------------------|
+| 1        | Change weapon to one bullet.            |
+| 2        | Change weapon to two bullets.           |
+| A        | Move left.                              |
+| D        | Move right.                             |
+| Up       | Move forward.                           |
+| Down     | Move backward.                          |
+| Left     | Turn left.                              |
+| Right    | Turn right.                             |
+| Minus    | Minimize speed.                         |
+| Plus(=)  | Maximize speed.                         |
+| Q        | Decrease speed (slowly).                |
+| E        | Increase speed (slowly).                |
+| Space    | Brake (extreme).                        |
+| W        | Shoot.                                  |
+| Ctrl+I   | Zoom in.                                |
+| Ctrl+O   | Zoom out.                               |
+| Ctrl+F   | Full-screen on/off.                     |
+| Esc      | Show menu (game pause) or back to game. |
 \
 **Related projects:**\
 \
