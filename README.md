@@ -30,7 +30,7 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 ~ Impulses (for moving) calculates depending on ship mass.\
 ~ Bullet/asteroid contact (collision) animation.\
 \
-**Control keys:**\
+**Control keys:**
 | Key      | Description                             |
 |----------|-----------------------------------------|
 | 1        | Change weapon to one bullet.            |
