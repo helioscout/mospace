@@ -8,29 +8,29 @@ Space worlds (game maps) with entities for this game you can create and edit wit
 \
 You don't have to compile the game to run it, all the necessary release files (for windows) are located in the folder **bin**.\
 \
-I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for development in C.\
-\
-**Dependencies**:\
-\
-~ [box2d](https://packages.msys2.org/base/mingw-w64-box2d): for game physics;\
-~ [raylib](https://packages.msys2.org/base/mingw-w64-raylib): for graphics and user events;\
-~ [raygui](https://github.com/raysan5/raygui): for immediate-mode gui;\
-~ [flecs](https://packages.msys2.org/base/mingw-w64-flecs): fast entity component system;\
-~ [sqlite](https://packages.msys2.org/base/mingw-w64-sqlite3): for reading/writing to database;\
-~ [hashmap](https://github.com/tidwall/hashmap.c.git): hash map implementation in C;\
-~ [kenney](http://kenney.nl): for assets;\
-\
-**Implemented features:**\
-\
-~ Moving forward, backward, left, right, angular.\
-~ Extreme (fast) breaking (to full stop).\
-~ Increasing/decreasing max speed.\
-~ Choose weapon type (one/two bullets for now).\
-~ Shots interval (100 ms).\
-~ Impulses (for moving) calculates depending on ship mass.\
-~ Bullet/asteroid contact (collision) animation.\
-\
-**Control keys:**
+I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for development in C.
+
+### Dependencies
+| Tool                                      | Purpose                                                           |
+|-------------------------------------------|-------------------------------------------------------------------|
+| [box2d](https://packages.msys2.org/base/mingw-w64-box2d) | For game physics.                                  |
+| [raylib](https://packages.msys2.org/base/mingw-w64-raylib) | For graphics and user events.                    |
+| [raygui](https://github.com/raysan5/raygui) | For immediate-mode gui.                                         |
+| [flecs](https://packages.msys2.org/base/mingw-w64-flecs) | Fast entity component system.                      |
+| [sqlite](https://packages.msys2.org/base/mingw-w64-sqlite3) | For reading/writing to database.                |
+| [hashmap](https://github.com/tidwall/hashmap.c.git) | Hash map implementation in C.                           |
+| [kenney](http://kenney.nl) | For assets.                                                                      |
+
+### Implemented features
+- Moving forward, backward, left, right, angular.
+- Extreme (fast) breaking (to full stop).
+- Increasing/decreasing max speed.
+- Choose weapon type (one/two bullets for now).
+- Shots interval (100 ms).
+- Impulses (for moving) calculates depending on ship mass.
+- Bullet/asteroid contact (collision) animation.
+
+### Control keys
 | Key      | Description                             |
 |----------|-----------------------------------------|
 | 1        | Change weapon to one bullet.            |
@@ -51,9 +51,10 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 | Ctrl+O   | Zoom out.                               |
 | Ctrl+F   | Full-screen on/off.                     |
 | Esc      | Show menu (game pause) or back to game. |
-\
-**Related projects:**\
-\
-[moeditor](https://git.sr.ht/~modevstudio/moeditor): worlds editor for space game;
+
+### Related projects
+| Project                                             | Description                                             |
+|-----------------------------------------------------|---------------------------------------------------------|
+| [moeditor](https://git.sr.ht/~modevstudio/moeditor) | Worlds editor for space game.                           |
 
 [![Hits](https://hits.sh/sr.ht/~modevstudio/mospace.svg)](https://hits.sh/sr.ht/~modevstudio/mospace/)
