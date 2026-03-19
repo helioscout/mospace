@@ -4,7 +4,7 @@ Feel free to use it as template for your own things.\
 \
 ![Screenshot](pics/screen.png)\
 \
-Space worlds (game maps) with entities for this game you can create and edit with [moeditor](https://github.com/moscout/moeditor) project. There you will find also description of the game storage (SQLite database) structure.\
+Space worlds (game maps) with entities for this game you can create and edit with [moeditor](https://sr.ht/~helioscout/moeditor) project. There you will find also description of the game storage (SQLite database) structure.\
 \
 You don't have to compile the game to run it, all the necessary release files (for windows) are located in the folder **bin**.\
 \
@@ -55,4 +55,4 @@ I am using [MSYS2](https://www.msys2.org/) for managing libraries that I use for
 ### Related projects
 | Project                                             | Description                                             |
 |-----------------------------------------------------|---------------------------------------------------------|
-| [moeditor](https://github.com/moscout/moeditor) | Worlds editor for space game.                           |
+| [moeditor](https://sr.ht/~helioscout/moeditor) | Worlds editor for space game.                           |
