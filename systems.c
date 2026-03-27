@@ -144,7 +144,7 @@ void actions(ecs_iter_t *iter) {
 			if (action & TurnLeft)		b2Body_ApplyAngularImpulse(body_id, -angular_impulse, true);
 			if (action & TurnRight)		b2Body_ApplyAngularImpulse(body_id, angular_impulse, true);
 			if (action & MinimizeSpeed) ship[i].speed = 0;
-			if (action & MaximizeSpeed) ship[i].speed = 500;
+			if (action & MaximizeSpeed) ship[i].speed = 50;
 			if (action & DecreaseSpeed && ship[i].speed > 0) ship[i].speed--;
 			if (action & IncreaseSpeed && ship[i].speed < 50) ship[i].speed++;
 			
